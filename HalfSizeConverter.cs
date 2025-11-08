@@ -9,7 +9,7 @@ namespace FloatingNote
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is double d)
-                return d * 0.3;
+                return d * 0.3; // This is 0.3, not half, but keeping your original logic
             return 20.0;
         }
 
