@@ -1,17 +1,19 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms; // Requires System.Windows.Forms reference
-using System.Drawing;       // Requires System.Drawing reference
+using System.Windows.Forms;
+using System.Drawing;
 using Application = System.Windows.Application;
-using Button = System.Windows.Controls.Button; // resolve ambiguity
-using ContextMenu = System.Windows.Forms.ContextMenu; // FIX: Resolve ContextMenu ambiguity
-using System.Windows.Media; // Needed for gradient brushes
-using System.Windows.Input; // Added for MouseButtonEventArgs
+using Button = System.Windows.Controls.Button;
+using ContextMenu = System.Windows.Forms.ContextMenu;
+using System.Windows.Media;
+using System.Windows.Input;
+using System.Threading.Tasks;
 
-namespace FloatingNote
+namespace FloatingReminder
 {
     public partial class MainWindow : Window
     {
@@ -22,151 +24,122 @@ namespace FloatingNote
         public ObservableCollection<ReminderItem> Reminders { get; set; } = new ObservableCollection<ReminderItem>();
         private ReminderItem _editingItem = null;
 
+        private Settings _settings;
+
         public MainWindow()
         {
             InitializeComponent();
 
-            if (Reminders.Count == 0)
-            {
-                Reminders.Add(new ReminderItem { Message = "Welcome to your new dashboard! ✨", DurationSeconds = 5 });
-                Reminders.Add(new ReminderItem { Message = "Add your own messages below 👇", DurationSeconds = 8 });
-            }
+            _settings = SettingsService.LoadSettings();
 
+            // Load and sort by timestamp
+            Reminders = new ObservableCollection<ReminderItem>(_settings.Items.OrderBy(item => item.CreatedAt));
             RemindersList.ItemsSource = Reminders;
-            FontSizeInput.Text = "60";
+            FontSizeInput.Text = _settings.StartFontSize.ToString();
+            GlowCheckBox.IsChecked = _settings.IsGlowEnabled;
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             InitializeTrayIcon();
-            ApplyCurrentBackgroundPreset();
+            // REMOVED: this.Hide();
+            // The window will now be visible on startup.
         }
 
         private void InitializeTrayIcon()
         {
             _notifyIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Information,
+                Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetEntryAssembly().Location),
                 Visible = true,
-                Text = "Floating Note Dashboard"
+                Text = "Floating Reminder"
             };
 
             var contextMenu = new ContextMenu();
             contextMenu.MenuItems.Add("Show Dashboard", OnShowDashboard);
+            contextMenu.MenuItems.Add("Close Dashboard", OnMinimizeToTray); // NEW
             contextMenu.MenuItems.Add("-");
             contextMenu.MenuItems.Add("Exit", OnExitApplication);
+
             _notifyIcon.ContextMenu = contextMenu;
-            _notifyIcon.Click += OnShowDashboard;
+            _notifyIcon.DoubleClick += OnShowDashboard;
         }
 
-        // --- NEW WINDOW CONTROL HANDLERS ---
-        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        // --- HELPER METHOD ---
+        private void SaveAndRefreshSettings()
         {
-            // Allows dragging the window by the custom title bar
-            if (e.ChangedButton == MouseButton.Left)
-                this.DragMove();
-        }
+            // Sort by creation time before saving
+            _settings.Items = Reminders.OrderBy(item => item.CreatedAt).ToList();
 
-        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
-        {
-            this.WindowState = WindowState.Minimized;
-        }
-
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Hides window to tray, same as the old standard close button
-            this.Hide();
-        }
-        // -----------------------------------
-
-        private void ChangeBackground_Click(object sender, RoutedEventArgs e)
-        {
-            _currentGradientIndex = (_currentGradientIndex + 1) % GradientPresets.SpotifyLikeGradients.Count;
-            ApplyCurrentBackgroundPreset();
-        }
-
-        private void ApplyCurrentBackgroundPreset()
-        {
-            if (this.Resources.Contains("DashboardBackgroundBrush"))
+            if (double.TryParse(FontSizeInput.Text, out double fontSize))
             {
-                this.Resources["DashboardBackgroundBrush"] = GradientPresets.SpotifyLikeGradients[_currentGradientIndex];
+                _settings.StartFontSize = fontSize;
             }
+            _settings.IsGlowEnabled = GlowCheckBox.IsChecked == true;
+
+            SettingsService.SaveSettings(_settings);
         }
 
-        // --- CRUD OPERATIONS --- (Unchanged)
+        // --- DASHBOARD ACTIONS (UPDATED) ---
 
-        private void AddUpdateButton_Click(object sender, RoutedEventArgs e)
+        private void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            string msg = MsgInput.Text.Trim();
-            if (string.IsNullOrEmpty(msg)) { ShowError("Please enter a message first."); return; }
-            if (!int.TryParse(DurInput.Text, out int duration) || duration <= 0) { ShowError("Please enter a valid positive duration."); return; }
+            string message = MessageInput.Text.Trim();
+            if (string.IsNullOrWhiteSpace(message)) { ShowError("Message can't be empty."); return; }
+            if (!int.TryParse(DurationInput.Text, out int duration) || duration <= 0) { ShowError("Duration must be a positive number."); return; }
 
-            if (_editingItem == null)
+            if (_editingItem != null)
             {
-                Reminders.Add(new ReminderItem { Message = msg, DurationSeconds = duration });
+                // Update existing item
+                _editingItem.Message = message;
+                _editingItem.DurationSeconds = duration;
+                // Note: We don't update the timestamp when editing
             }
             else
             {
-                _editingItem.Message = msg;
-                _editingItem.DurationSeconds = duration;
-                int index = Reminders.IndexOf(_editingItem);
-                if (index != -1) Reminders[index] = new ReminderItem { Message = msg, DurationSeconds = duration };
-                ExitEditMode();
+                // Create a new item (ID and Timestamp are set in constructor)
+                var newItem = new ReminderItem { Message = message, DurationSeconds = duration };
+                Reminders.Add(newItem);
             }
-            ClearInputs();
+
+            // Refresh the list to show the new item
+            // We re-sort the underlying ObservableCollection
+            var sortedList = Reminders.OrderBy(item => item.CreatedAt).ToList();
+            Reminders.Clear();
+            foreach (var item in sortedList)
+            {
+                Reminders.Add(item);
+            }
+
+            // Clear inputs
+            MessageInput.Text = "";
+            DurationInput.Text = "5";
+            AddButton.Content = "ADD MESSAGE";
             ErrorText.Visibility = Visibility.Collapsed;
-            if (_editingItem == null && Reminders.Count > 0) RemindersList.ScrollIntoView(Reminders[Reminders.Count - 1]);
+            _editingItem = null; // Ensure we are no longer in edit mode
+
+            SaveAndRefreshSettings();
         }
 
-        private void EditItem_Click(object sender, RoutedEventArgs e)
+        private void EditButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as Button;
-            if (button?.Tag is ReminderItem item) EnterEditMode(item);
+            if (sender is Button btn && btn.Tag is ReminderItem item)
+            {
+                MessageInput.Text = item.Message;
+                DurationInput.Text = item.DurationSeconds.ToString();
+                AddButton.Content = "UPDATE MESSAGE";
+                _editingItem = item;
+                MessageInput.Focus();
+            }
         }
 
-        private void DeleteItem_Click(object sender, RoutedEventArgs e)
+        private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
-            var button = sender as Button;
-            if (button?.Tag is ReminderItem item)
+            if (sender is Button btn && btn.Tag is ReminderItem item)
             {
                 Reminders.Remove(item);
-                if (_editingItem == item) ExitEditMode();
+                SaveAndRefreshSettings();
             }
-        }
-
-        private void CancelEditButton_Click(object sender, RoutedEventArgs e)
-        {
-            ExitEditMode();
-            ClearInputs();
-        }
-
-        // --- HELPER METHODS --- (Unchanged)
-
-        private void EnterEditMode(ReminderItem item)
-        {
-            _editingItem = item;
-            MsgInput.Text = item.Message;
-            DurInput.Text = item.DurationSeconds.ToString();
-            InputHeader.Text = "Editing Message...";
-            AddUpdateButton.Content = "UPDATE ✓";
-            AddUpdateButton.Background = (System.Windows.Media.Brush)new BrushConverter().ConvertFrom("#FF4CAF50");
-            CancelEditButton.Visibility = Visibility.Visible;
-            MsgInput.Focus();
-        }
-
-        private void ExitEditMode()
-        {
-            _editingItem = null;
-            InputHeader.Text = "Add New Message";
-            AddUpdateButton.Content = "ADD +";
-            AddUpdateButton.Background = (System.Windows.Media.Brush)new BrushConverter().ConvertFrom("#FF007ACC");
-            CancelEditButton.Visibility = Visibility.Collapsed;
-        }
-
-        private void ClearInputs()
-        {
-            MsgInput.Text = "";
-            DurInput.Text = "5";
         }
 
         private void ShowError(string message)
@@ -175,28 +148,145 @@ namespace FloatingNote
             ErrorText.Visibility = Visibility.Visible;
         }
 
-        // --- LAUNCH LOGIC --- (Unchanged)
+        // --- THEME & DRAGGING ---
+        private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
+        }
 
+        private void ChangeGradientButton_Click(object sender, RoutedEventArgs e)
+        {
+            _currentGradientIndex = (_currentGradientIndex + 1) % GradientPresets.SpotifyLikeGradients.Count;
+            BackgroundGrid.Background = GradientPresets.SpotifyLikeGradients[_currentGradientIndex];
+        }
+
+        // --- LAUNCH BUTTON ---
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             ErrorText.Visibility = Visibility.Collapsed;
             if (Reminders.Count == 0) { ShowError("Please add at least one message."); return; }
-            if (!double.TryParse(FontSizeInput.Text, out double fontSize) || fontSize <= 0) { ShowError("Invalid font size."); return; }
 
-            var settings = new Settings { Items = Reminders.ToList(), StartFontSize = fontSize, IsGlowEnabled = GlowCheckBox.IsChecked == true };
+            SaveAndRefreshSettings();
+
             _noteWindow?.Close();
-            _noteWindow = new FloatingNoteWindow(settings);
+            _noteWindow = new FloatingNoteWindow(_settings);
             _noteWindow.Show();
-            this.Hide();
+            this.Hide(); // Hide dashboard when note is launched
         }
 
-        // --- APP LIFECYCLE --- (Unchanged)
+        // --- SYNC (UPLOAD) BUTTON ---
+        private async void SyncButton_Click(object sender, RoutedEventArgs e)
+        {
+            SyncStatusText.Text = "Syncing (Uploading)...";
+            SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#AAFFFFFF");
+            SyncStatusText.Visibility = Visibility.Visible;
+            SyncButton.IsEnabled = false;
+            LoadButton.IsEnabled = false;
 
+            try
+            {
+                SaveAndRefreshSettings(); // Saves and sorts the list
+                await MongoSyncService.UploadSettingsAsync(_settings);
+
+                SyncStatusText.Text = "Upload complete! ✨";
+                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#90EE90");
+            }
+            catch (Exception ex)
+            {
+                SyncStatusText.Text = "Sync Error. Check connection string or internet.";
+                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#FF6B6B");
+                Console.WriteLine($"[SYNC ERROR]: {ex.Message}");
+            }
+            finally
+            {
+                SyncButton.IsEnabled = true;
+                LoadButton.IsEnabled = true;
+            }
+        }
+
+        // --- LOAD (DOWNLOAD & MERGE) BUTTON (UPDATED) ---
+        private async void LoadButton_Click(object sender, RoutedEventArgs e)
+        {
+            SyncStatusText.Text = "Loading & Merging...";
+            SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#AAFFFFFF");
+            SyncStatusText.Visibility = Visibility.Visible;
+            LoadButton.IsEnabled = false;
+            SyncButton.IsEnabled = false;
+
+            try
+            {
+                // 1. Get both local and cloud lists
+                var cloudSettings = await MongoSyncService.DownloadSettingsAsync();
+                var localItems = _settings.Items ?? new List<ReminderItem>();
+                var cloudItems = cloudSettings?.Items ?? new List<ReminderItem>();
+
+                if (cloudSettings == null)
+                {
+                    SyncStatusText.Text = "No settings found in cloud. Nothing to merge.";
+                    SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#FF6B6B");
+                    return;
+                }
+
+                // 2. Perform the merge
+                // This combines both lists, groups them by their unique ID,
+                // takes the first one from each group, and then sorts by time.
+                var mergedList = localItems.Concat(cloudItems)
+                                       .GroupBy(item => item.Id)
+                                       .Select(group => group.First())
+                                       .OrderBy(item => item.CreatedAt)
+                                       .ToList();
+
+                // 3. Update the main settings object
+                _settings.Items = mergedList;
+                // We keep local Font/Glow settings, they are not merged.
+
+                // 4. Update the UI
+                Reminders.Clear();
+                foreach (var item in mergedList)
+                {
+                    Reminders.Add(item);
+                }
+
+                // 5. Save the new merged list locally
+                SettingsService.SaveSettings(_settings);
+                // We do NOT auto-upload. This lets the user verify.
+
+                // 6. Report success
+                SyncStatusText.Text = $"Merge complete! Total items: {mergedList.Count}";
+                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#90EE90");
+            }
+            catch (Exception ex)
+            {
+                SyncStatusText.Text = "Load Error. Check connection or internet.";
+                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#FF6B6B");
+                Console.WriteLine($"[LOAD ERROR]: {ex.Message}");
+            }
+            finally
+            {
+                LoadButton.IsEnabled = true;
+                SyncButton.IsEnabled = true;
+            }
+        }
+
+        // --- APP LIFECYCLE (UPDATED) ---
         private void OnShowDashboard(object sender, EventArgs e)
         {
             this.Show();
             this.Activate();
             if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        }
+
+        // NEW: Minimize to tray
+        private void OnMinimizeToTray(object sender, EventArgs e)
+        {
+            this.Hide();
+        }
+
+        // NEW: Minimize button click
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            OnMinimizeToTray(null, EventArgs.Empty);
         }
 
         private void OnExitApplication(object sender, EventArgs e)
@@ -213,8 +303,9 @@ namespace FloatingNote
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            // Re-route the window's 'X' button to minimize instead of close
             e.Cancel = true;
-            this.Hide();
+            OnMinimizeToTray(null, EventArgs.Empty);
         }
     }
 }

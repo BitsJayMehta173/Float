@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Windows.Data;
 
-namespace FloatingNote
+namespace FloatingReminder
 {
     public class HalfSizeConverter : IValueConverter
     {
