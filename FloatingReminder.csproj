@@ -60,6 +60,8 @@
     <Compile Include="FloatingNoteWindow.xaml.cs">
       <DependentUpon>FloatingNoteWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="GradientPresets.cs" />
+    <Compile Include="RemainderItem.cs" />
     <Compile Include="Settings.cs" />
     <Page Include="FloatingNoteWindow.xaml">
       <SubType>Designer</SubType>

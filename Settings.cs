@@ -1,22 +1,21 @@
-﻿using System;
+﻿using System.Collections.Generic;
 
 namespace FloatingNote
 {
-    /// <summary>
-    /// A simple class to hold settings passed from the dashboard to the note window.
-    /// </summary>
     public class Settings
     {
-        public string[] Texts { get; set; }
-        public int IntervalSeconds { get; set; }
+        // Now holds a list of complex items instead of just strings
+        public List<ReminderItem> Items { get; set; }
         public double StartFontSize { get; set; }
         public bool IsGlowEnabled { get; set; }
 
         public Settings()
         {
-            // Provide sensible defaults
-            Texts = new[] { "Welcome!", "Configure me in the dashboard." };
-            IntervalSeconds = 5;
+            Items = new List<ReminderItem>
+            {
+                new ReminderItem { Message = "Welcome to your new dashboard! ✨", DurationSeconds = 5 },
+                new ReminderItem { Message = "Add your own messages below 👇", DurationSeconds = 8 }
+            };
             StartFontSize = 60;
             IsGlowEnabled = true;
         }

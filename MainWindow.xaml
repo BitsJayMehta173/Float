@@ -5,112 +5,286 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FloatingNote"
         mc:Ignorable="d"
-        Title="Floating Note Dashboard" 
-        Height="480" Width="400"
+        Title="Note Dashboard" 
+        Height="650" Width="450"
         WindowStartupLocation="CenterScreen"
         Loaded="Window_Loaded"
         Closing="Window_Closing"
-        ShowInTaskbar="False">
-    <!-- 
-    NOTE: ShowInTaskbar="False" is critical. 
-    This window will only be accessible via the system tray icon.
-    -->
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+        
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        
+        ShowInTaskbar="False"
+        Foreground="White"
+        FontFamily="{x:Static local:FontLoader.NoteFontFamily}">
 
-        <!-- Instructions -->
-        <TextBlock Text="Configure your floating note. It will update when you click 'Start / Update'."
-                   TextWrapping="Wrap"
-                   Margin="0,0,0,15"
-                   Opacity="0.7"/>
+    <Window.Resources>
+        <!-- Default to Preset 0: Mauve (Top) to Deep Purple (Bottom) -->
+        <LinearGradientBrush x:Key="DashboardBackgroundBrush" StartPoint="0.5,0" EndPoint="0.5,1">
+            <GradientStop Color="#854F6C" Offset="0.0"/>
+            <GradientStop Color="#190019" Offset="1.0"/>
+        </LinearGradientBrush>
 
-        <!-- 1. Text Array Input -->
-        <Grid Grid.Row="1">
+        <Style x:Key="GlassBorder" TargetType="Border">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#44FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="15"/>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#33000000"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#55FFFFFF"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TextBox}">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="5">
+                            <ScrollViewer x:Name="PART_ContentHost" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#AAFFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="5,0,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#33FFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CircleIconButton" TargetType="Button">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Background" Value="#33FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#66FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Ellipse Fill="{TemplateBinding Background}"
+                                     Stroke="{TemplateBinding BorderBrush}"
+                                     StrokeThickness="{TemplateBinding BorderThickness}"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="3" Opacity="0.3" ShadowDepth="0"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- New style for window control buttons -->
+        <Style x:Key="WindowControlButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Margin" Value="5,0,0,0"/>
+        </Style>
+
+    </Window.Resources>
+
+    <!-- Main container with rounded corners for the whole window -->
+    <Border CornerRadius="15" Background="{DynamicResource DashboardBackgroundBrush}" Padding="20">
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
+                <!-- Custom Title Bar -->
                 <RowDefinition Height="*"/>
+                <!-- Content -->
             </Grid.RowDefinitions>
-            <Label Content="_Messages (one per line):" Target="{Binding ElementName=TextArrayInput}"/>
-            <TextBox x:Name="TextArrayInput"
-                     Grid.Row="1"
-                     AcceptsReturn="True"
-                     VerticalScrollBarVisibility="Auto"
-                     Padding="5"
-                     BorderThickness="1"
-                     BorderBrush="#CCC"
-                     Text="Take a deep breath 💨&#x0a;You are doing great 💪&#x0a;Stay focused 🎯"
-                     FontFamily="Segoe UI"/>
+
+            <!-- CUSTOM TITLE BAR (Draggable) -->
+            <Grid Grid.Row="0" Margin="0,0,0,20" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Title & Color Cycle Button -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Floating Note Configurator" 
+                           FontSize="18" FontWeight="Light" 
+                           Opacity="0.9" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock.Effect>
+                            <DropShadowEffect ShadowDepth="0" BlurRadius="10" Opacity="0.5"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <Button Content="🎨" Style="{StaticResource CircleIconButton}" 
+                        Click="ChangeBackground_Click" 
+                        ToolTip="Cycle Background Color"
+                        Width="24" Height="24" FontSize="12"/>
+                </StackPanel>
+
+                <!-- Window Control Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="_" Style="{StaticResource WindowControlButton}" Click="MinimizeButton_Click"/>
+                    <Button Content="×" Style="{StaticResource WindowControlButton}" Click="CloseButton_Click" Foreground="#FF6B6B"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- MAIN CONTENT AREA -->
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <!-- List Box Area -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Input Area -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Global Settings -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Footer Actions -->
+                </Grid.RowDefinitions>
+
+                <!-- LIST AREA -->
+                <Border Grid.Row="0" Style="{StaticResource GlassBorder}" Margin="0,0,0,20" Padding="10">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Your Messages Stream" Opacity="0.6" Margin="0,0,0,10" FontSize="12"/>
+                        <ListBox x:Name="RemindersList" 
+                             Background="Transparent" 
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             HorizontalContentAlignment="Stretch">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Message}" 
+                                                   Foreground="White" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding DurationSeconds, StringFormat='{}Duration: {0}s'}" 
+                                                   Foreground="#AAFFFFFF" FontSize="11"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="Edit" Style="{StaticResource ActionButton}"
+                                            Click="EditItem_Click" Tag="{Binding}"/>
+                                        <Button Grid.Column="2" Content="Delete" Style="{StaticResource ActionButton}"
+                                            Click="DeleteItem_Click" Tag="{Binding}" Foreground="#FF6B6B"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <!-- INPUT AREA -->
+                <Border Grid.Row="1" Style="{StaticResource GlassBorder}" Margin="0,0,0,20">
+                    <StackPanel>
+                        <TextBlock x:Name="InputHeader" Text="Add New Message" Opacity="0.6" Margin="0,0,0,10" FontSize="12"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBox x:Name="MsgInput" Grid.ColumnSpan="2" Height="60" 
+                                 TextWrapping="Wrap" AcceptsReturn="True" 
+                                 VerticalScrollBarVisibility="Auto"
+                                 Tag="Type your message here..."/>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="Duration (s): " VerticalAlignment="Center" Opacity="0.7"/>
+                                <TextBox x:Name="DurInput" Width="50" Text="5" TextAlignment="Center"/>
+                            </StackPanel>
+                            <Button x:Name="AddUpdateButton" Grid.Row="1" Grid.Column="1" 
+                                Content="ADD +" Height="30" Margin="10,10,0,0"
+                                Background="#FF007ACC" BorderThickness="0" Foreground="White"
+                                FontWeight="Bold" Cursor="Hand"
+                                Click="AddUpdateButton_Click">
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="5"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                            <Button x:Name="CancelEditButton" Grid.Row="1" Grid.Column="1" 
+                                Content="Cancel" Height="30" Margin="-70,10,85,0"
+                                Background="#33FFFFFF" BorderThickness="0" Foreground="White"
+                                Cursor="Hand" Visibility="Collapsed"
+                                Click="CancelEditButton_Click">
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="5"/>
+                                    </Style>
+                                </Button.Resources>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- GLOBAL SETTINGS -->
+                <Grid Grid.Row="2" Margin="10,0,10,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Base Font Size: " VerticalAlignment="Center" Opacity="0.7"/>
+                        <TextBox x:Name="FontSizeInput" Width="50" Text="60" TextAlignment="Center" Margin="5,0,0,0"/>
+                    </StackPanel>
+                    <CheckBox x:Name="GlowCheckBox" Grid.Column="2"
+                          Content="Enable Glow Effect" IsChecked="True"
+                          Foreground="White" VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- FOOTER ACTIONS -->
+                <StackPanel Grid.Row="3">
+                    <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontWeight="Bold" 
+                           HorizontalAlignment="Center" Margin="0,0,0,10" 
+                           TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <Button x:Name="StartButton" Content="LAUNCH FLOATING NOTE 🚀" 
+                        Height="45" FontSize="14" FontWeight="Bold"
+                        Background="White" Foreground="#1a2a6c" BorderThickness="0"
+                        Cursor="Hand" Click="StartButton_Click">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="22.5"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                    <Button Content="Exit Application completely" 
+                        Background="Transparent" BorderThickness="0" Foreground="#88FFFFFF"
+                        Cursor="Hand" Margin="0,10,0,0" FontSize="11"
+                        Click="ExitButton_Click"/>
+                </StackPanel>
+            </Grid>
         </Grid>
-
-        <!-- 2. Other Settings -->
-        <StackPanel Grid.Row="2" Margin="0,15,0,0">
-            <!-- Time Interval -->
-            <Label Content="_Interval (seconds):" Target="{Binding ElementName=IntervalInput}"/>
-            <TextBox x:Name="IntervalInput"
-                     Text="5"
-                     Padding="5"
-                     BorderThickness="1"
-                     BorderBrush="#CCC"
-                     Width="80"
-                     HorizontalAlignment="Left"/>
-
-            <!-- Font Size -->
-            <Label Content="_Start Font Size:" Target="{Binding ElementName=FontSizeInput}" Margin="0,10,0,0"/>
-            <TextBox x:Name="FontSizeInput"
-                     Text="60"
-                     Padding="5"
-                     BorderThickness="1"
-                     BorderBrush="#CCC"
-                     Width="80"
-                     HorizontalAlignment="Left"/>
-
-            <!-- Glow Toggle -->
-            <CheckBox x:Name="GlowCheckBox"
-                      Content="Enable Text _Glow"
-                      IsChecked="True"
-                      Margin="0,15,0,0"/>
-        </StackPanel>
-
-        <!-- Error Message -->
-        <TextBlock x:Name="ErrorText"
-                   Grid.Row="3"
-                   Foreground="Red"
-                   Margin="0,10,0,0"
-                   FontWeight="Bold"
-                   Visibility="Collapsed"/>
-
-        <!-- Start Button -->
-        <Button x:Name="StartButton"
-                Grid.Row="4"
-                Content="Start / Update Note"
-                Padding="10,8"
-                FontWeight="Bold"
-                Margin="0,20,0,0"
-                HorizontalAlignment="Stretch"
-                Background="#007ACC"
-                Foreground="White"
-                BorderThickness="0"
-                Cursor="Hand"
-                Click="StartButton_Click"/>
-
-        <!-- Exit App Button -->
-        <Button x:Name="ExitButton"
-                Grid.Row="5"
-                Content="Exit Application"
-                Padding="8,5"
-                Margin="0,5,0,0"
-                HorizontalAlignment="Center"
-                Background="Transparent"
-                Foreground="#888"
-                BorderThickness="0"
-                Cursor="Hand"
-                Click="ExitButton_Click"/>
-    </Grid>
+    </Border>
 </Window>

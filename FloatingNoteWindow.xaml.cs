@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -13,8 +14,9 @@ namespace FloatingNote
         private bool _isDragging;
         private Point _dragStart;
         private readonly DispatcherTimer _textChangeTimer;
-        private int _currentTextIndex;
-        private readonly string[] _texts;
+        private int _currentIndex;
+        // Now using the list of complex items
+        private readonly List<ReminderItem> _items;
 
         private readonly DoubleAnimation _fadeOutAnim;
         private readonly DoubleAnimation _fadeInAnim;
@@ -23,15 +25,17 @@ namespace FloatingNote
         {
             InitializeComponent();
 
-            _texts = settings.Texts ?? new[] { "Default Note" };
-            ReminderText.Text = _texts[0];
+            _items = settings.Items ?? new List<ReminderItem>();
+            if (_items.Count == 0) _items.Add(new ReminderItem { Message = "No messages configured.", DurationSeconds = 10 });
+
+            _currentIndex = 0;
+
+            // Initial Setup
+            ReminderText.Text = _items[0].Message;
             ReminderText.FontSize = settings.StartFontSize;
+            if (!settings.IsGlowEnabled) ReminderText.Effect = null;
 
-            if (!settings.IsGlowEnabled)
-            {
-                ReminderText.Effect = null;
-            }
-
+            // Animations
             _fadeOutAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(250))
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
@@ -47,35 +51,49 @@ namespace FloatingNote
 
             UpdateCloseButtonSize();
 
-            _textChangeTimer = new DispatcherTimer(DispatcherPriority.Background)
-            {
-                Interval = TimeSpan.FromSeconds(settings.IntervalSeconds)
-            };
+            // Initialize Timer (don't start yet if only 1 item)
+            _textChangeTimer = new DispatcherTimer(DispatcherPriority.Background);
             _textChangeTimer.Tick += TextChangeTimer_Tick;
 
-            if (_texts.Length > 1)
+            // Start timer for the FIRST item's duration
+            if (_items.Count > 1)
             {
-                _textChangeTimer.Start();
+                ResetTimerForCurrentItem();
             }
+        }
+
+        private void ResetTimerForCurrentItem()
+        {
+            _textChangeTimer.Stop();
+            // Set interval based on the CURRENT item's desired duration
+            _textChangeTimer.Interval = TimeSpan.FromSeconds(_items[_currentIndex].DurationSeconds);
+            _textChangeTimer.Start();
         }
 
         private void TextChangeTimer_Tick(object sender, EventArgs e)
         {
-            int nextIndex = _currentTextIndex + 1;
-            if (nextIndex >= _texts.Length) nextIndex = 0;
-
-            if (_texts[nextIndex] != ReminderText.Text)
-            {
-                _currentTextIndex = nextIndex;
-                ReminderText.BeginAnimation(OpacityProperty, _fadeOutAnim);
-            }
+            // Time is up for the current message. Fade it out.
+            ReminderText.BeginAnimation(OpacityProperty, _fadeOutAnim);
         }
 
         private void FadeOutAnim_Completed(object sender, EventArgs e)
         {
-            ReminderText.Text = _texts[_currentTextIndex];
+            // Move to next index
+            _currentIndex = (_currentIndex + 1) % _items.Count;
+
+            // Update text
+            ReminderText.Text = _items[_currentIndex].Message;
+
+            // Fade back in
             ReminderText.BeginAnimation(OpacityProperty, _fadeInAnim);
+
+            // IMPORTANT: Start the timer for the NEW item's duration
+            ResetTimerForCurrentItem();
         }
+
+        // =================================================================
+        //  BELOW IS UNCHANGED UI/DRAG/ZOOM LOGIC from previous versions
+        // =================================================================
 
         private void UpdateCloseButtonSize()
         {
@@ -86,7 +104,6 @@ namespace FloatingNote
             CloseButton.FontSize = Math.Max(10, btnSize * 0.5);
         }
 
-        // --- HOVER LOGIC ---
         private void ButtonHitbox_MouseEnter(object sender, MouseEventArgs e)
         {
             var anime = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
@@ -99,27 +116,21 @@ namespace FloatingNote
             CloseButton.BeginAnimation(OpacityProperty, anime);
         }
 
-        // --- POP DESTROY ANIMATION ---
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            // Prevent double-clicks while animating
             CloseButton.IsEnabled = false;
             _textChangeTimer.Stop();
 
-            // Create the "Pop" effect using keyframes
-            // It goes from 1.0 -> 1.2 (fast pop up) -> 0.0 (shrink away)
             DoubleAnimationUsingKeyFrames popAnim = new DoubleAnimationUsingKeyFrames();
             popAnim.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
             popAnim.KeyFrames.Add(new EasingDoubleKeyFrame(1.2, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(50))));
             popAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(250))));
 
-            // Fade out at the same time
             DoubleAnimation fadeAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
-            fadeAnim.BeginTime = TimeSpan.FromMilliseconds(50); // Start fading slightly after the pop starts
+            fadeAnim.BeginTime = TimeSpan.FromMilliseconds(50);
 
             Storyboard storyboard = new Storyboard();
 
-            // Apply scale animation to X and Y axes of PopScale transform
             Storyboard.SetTarget(popAnim, TextArea);
             Storyboard.SetTargetProperty(popAnim, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"));
             storyboard.Children.Add(popAnim);
@@ -129,17 +140,14 @@ namespace FloatingNote
             Storyboard.SetTargetProperty(popAnimY, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"));
             storyboard.Children.Add(popAnimY);
 
-            // Apply fade animation to the whole TextArea
             Storyboard.SetTarget(fadeAnim, TextArea);
             Storyboard.SetTargetProperty(fadeAnim, new PropertyPath(OpacityProperty));
             storyboard.Children.Add(fadeAnim);
 
-            // Close ONLY this window when done. The app remains running in the tray.
             storyboard.Completed += (s, args) => this.Close();
             storyboard.Begin();
         }
 
-        // --- ZOOM LOGIC ---
         private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
             const double step = 5.0;
@@ -166,7 +174,6 @@ namespace FloatingNote
             ReminderText.BeginAnimation(TextBlock.FontSizeProperty, anim);
         }
 
-        // --- TOUCH LOGIC ---
         private void Window_ManipulationDelta(object sender, ManipulationDeltaEventArgs e)
         {
             if (e.DeltaManipulation.Scale.X != 1.0)
@@ -181,7 +188,6 @@ namespace FloatingNote
             DragTranslate.Y += e.DeltaManipulation.Translation.Y;
         }
 
-        // --- MOUSE DRAG LOGIC ---
         private void TextArea_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             _isDragging = true;
