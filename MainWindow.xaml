@@ -23,14 +23,12 @@
             <GradientStop Color="#854F6C" Offset="0.0"/>
             <GradientStop Color="#190019" Offset="1.0"/>
         </LinearGradientBrush>
-
         <Style x:Key="GlassBorder" TargetType="Border">
             <Setter Property="Background" Value="#11FFFFFF"/>
             <Setter Property="BorderBrush" Value="#22FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
         </Style>
-
         <Style x:Key="GlassTextBox" TargetType="TextBox">
             <Setter Property="Background" Value="#11FFFFFF"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -41,17 +39,13 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border CornerRadius="8" 
-                                Background="{TemplateBinding Background}" 
-                                BorderBrush="{TemplateBinding BorderBrush}" 
-                                BorderThickness="{TemplateBinding BorderThickness}">
+                        <Border CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                             <ScrollViewer x:Name="PART_ContentHost"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-
         <Style x:Key="GlassButton" TargetType="Button">
             <Setter Property="Background" Value="#22FFFFFF"/>
             <Setter Property="Foreground" Value="White"/>
@@ -60,10 +54,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="8" 
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}">
+                        <Border x:Name="border" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -105,17 +96,32 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0" Text="Floating Note Dashboard" FontSize="18" FontWeight="Bold" 
+                    <TextBlock x:Name="TitleText" Grid.Column="0" Text="Floating Note Dashboard" FontSize="18" FontWeight="Bold" 
                                VerticalAlignment="Center" TextWrapping="Wrap"/>
 
-                    <Button Grid.Column="1" Content="🎨" FontSize="16" Width="30" Height="30"
-                            Style="{StaticResource GlassButton}"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="LoginButton" Content="Login" 
+                                Style="{StaticResource GlassButton}" Padding="10,5"
+                                ToolTip="Login or Sign Up"
+                                Click="LoginButton_Click"
+                                Visibility="Collapsed"/>
+
+                        <Button x:Name="LogoutButton" Content="Logout" 
+                                Style="{StaticResource GlassButton}" Padding="10,5"
+                                ToolTip="Logout and return to Login"
+                                Click="LogoutButton_Click"
+                                Visibility="Collapsed"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="2" Content="🎨" FontSize="16" Width="30" Height="30"
+                            Style="{StaticResource GlassButton}" Margin="5,0,0,0"
                             ToolTip="Change Theme"
                             Click="ChangeGradientButton_Click"/>
 
-                    <Button Grid.Column="2" Content="—" FontSize="16" Width="30" Height="30"
+                    <Button Grid.Column="3" Content="—" FontSize="16" Width="30" Height="30"
                             Style="{StaticResource GlassButton}" Margin="5,0,0,0"
                             ToolTip="Minimize to Tray"
                             Click="MinimizeButton_Click"/>
@@ -235,16 +241,15 @@
                     </Button>
 
                     <Button x:Name="SyncButton" 
-                            Content="Upload to Cloud ☁️" 
+                            Content="Sync with Cloud 🔄" 
                             Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
                             Cursor="Hand" Margin="0,10,0,0" FontSize="11"
                             Click="SyncButton_Click"/>
 
-                    <Button x:Name="LoadButton" 
-                            Content="Merge from Cloud 🔄" 
+                    <Button x:Name="LoadButton" Content="Merge from Cloud 🔄"
                             Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
                             Cursor="Hand" Margin="0,5,0,0" FontSize="11"
-                            Click="LoadButton_Click"/>
+                            Visibility="Collapsed"/>
 
                     <TextBlock x:Name="SyncStatusText" 
                                HorizontalAlignment="Center" Margin="0,5,0,-5"

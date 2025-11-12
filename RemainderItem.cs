@@ -3,10 +3,8 @@ using System;
 
 namespace FloatingReminder
 {
-    // Implement IEquatable to help with finding duplicates
     public class ReminderItem : IEquatable<ReminderItem>
     {
-        // This is now the unique key for MongoDB
         [BsonId]
         public string Id { get; set; }
 
@@ -16,26 +14,33 @@ namespace FloatingReminder
         [BsonElement("durationSeconds")]
         public int DurationSeconds { get; set; } = 5;
 
-        // NEW: Add timestamp and set it to UTC for consistency
         [BsonElement("createdAt")]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime CreatedAt { get; set; }
 
-        // NEW: Constructor to assign unique ID and timestamp on creation
+        // --- NEW ---
+        [BsonElement("lastModified")]
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime LastModified { get; set; }
+
+        // --- NEW ---
+        [BsonElement("isDeleted")]
+        public bool IsDeleted { get; set; } = false; // "Soft delete" flag
+
+
         public ReminderItem()
         {
-            this.Id = Guid.NewGuid().ToString(); // Assign a new unique ID
-            this.CreatedAt = DateTime.UtcNow; // Assign the current time
+            this.Id = Guid.NewGuid().ToString();
+            this.CreatedAt = DateTime.UtcNow;
+            this.LastModified = this.CreatedAt; // Initially, they are the same
         }
 
-        // --- Equality checks now use the unique ID ---
-
+        // --- Equality check is unchanged, it still uses the unique ID ---
         public bool Equals(ReminderItem other)
         {
             if (other is null)
                 return false;
 
-            // Two items are the same if their IDs are the same.
             return this.Id == other.Id;
         }
 
@@ -46,7 +51,6 @@ namespace FloatingReminder
 
         public override int GetHashCode()
         {
-            // Use the Id's hash code
             return this.Id.GetHashCode();
         }
     }

@@ -10,11 +10,13 @@ namespace FloatingReminder
             base.OnStartup(e);
 
             // Set shutdown mode to only exit when explicitly told (i.e., from the tray icon)
-            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // We change this so closing the LoginWindow exits the app,
+            // but the MainWindow will set it back to OnExplicitShutdown.
+            ShutdownMode = ShutdownMode.OnLastWindowClose;
 
-            // Create and show the main dashboard window
-            var dashboard = new MainWindow();
-            dashboard.Show();
+            // Create and show the new LoginWindow
+            var login = new LoginWindow();
+            login.Show();
         }
     }
 }

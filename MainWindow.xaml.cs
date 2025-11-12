@@ -12,6 +12,7 @@ using ContextMenu = System.Windows.Forms.ContextMenu;
 using System.Windows.Media;
 using System.Windows.Input;
 using System.Threading.Tasks;
+using System.Windows.Threading; // NEW: For the DispatcherTimer
 
 namespace FloatingReminder
 {
@@ -26,24 +27,151 @@ namespace FloatingReminder
 
         private Settings _settings;
 
-        public MainWindow()
+        private readonly string _currentUsername;
+        private readonly bool _isGuest;
+        private bool _isLoggingOut = false;
+
+        // --- NEW: Timer for auto-sync ---
+        private DispatcherTimer _syncTimer;
+
+        public MainWindow(string username, bool isGuest)
         {
             InitializeComponent();
 
-            _settings = SettingsService.LoadSettings();
+            _currentUsername = username;
+            _isGuest = isGuest;
 
-            // Load and sort by timestamp
-            Reminders = new ObservableCollection<ReminderItem>(_settings.Items.OrderBy(item => item.CreatedAt));
+            _settings = SettingsService.LoadSettings(_currentUsername);
+
             RemindersList.ItemsSource = Reminders;
+            RefreshVisualList();
+
             FontSizeInput.Text = _settings.StartFontSize.ToString();
             GlowCheckBox.IsChecked = _settings.IsGlowEnabled;
+
+            ConfigureUIMode();
+
+            // --- NEW: Start auto-sync timer if we are a logged-in user ---
+            if (!_isGuest)
+            {
+                _syncTimer = new DispatcherTimer();
+                _syncTimer.Interval = TimeSpan.FromMinutes(5); // Sync every 5 minutes
+                _syncTimer.Tick += OnAutoSyncTimer_Tick;
+                _syncTimer.Start();
+            }
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        // --- NEW: Auto-sync timer event ---
+        private async void OnAutoSyncTimer_Tick(object sender, EventArgs e)
+        {
+            // Run the sync logic, but flag it as "automatic"
+            // This will hide "Sync Error" messages and just show "Offline"
+            await DoSmartSync(isAutoSync: true);
+        }
+
+        // --- NEW: Reusable Smart Sync Logic ---
+        private async Task DoSmartSync(bool isAutoSync = false)
+        {
+            // Don't sync if we're a guest
+            if (_isGuest) return;
+
+            // Disable button if it exists
+            if (SyncButton != null) SyncButton.IsEnabled = false;
+
+            try
+            {
+                // 1. Get local items (master list, including deleted)
+                var localItems = _settings.Items ?? new List<ReminderItem>();
+
+                // 2. Get cloud items
+                var cloudSettings = await MongoSyncService.DownloadSettingsAsync(_currentUsername);
+                var cloudItems = cloudSettings?.Items ?? new List<ReminderItem>();
+
+                // 3. Combine and find "winners"
+                var allItems = localItems.Concat(cloudItems)
+                                         .GroupBy(item => item.Id);
+
+                var finalMergedList = allItems.Select(group =>
+                {
+                    // Find the item with the latest 'LastModified' date
+                    return group.OrderByDescending(item => item.LastModified).First();
+                })
+                    .ToList();
+
+                // 4. Save the new "master list" everywhere
+                _settings.Items = finalMergedList;
+                SaveAndRefreshSettings(); // Saves locally
+                await MongoSyncService.UploadSettingsAsync(_settings, _currentUsername); // Uploads to cloud
+
+                // 5. Refresh the UI (this will filter out deleted items)
+                RefreshVisualList();
+
+                // 6. Report Success
+                SetSyncStatus($"✅ Synced ({DateTime.Now:h:mm tt})", "#90EE90");
+            }
+            catch (Exception ex)
+            {
+                // 7. Report Failure
+                string error = "Offline. (Last sync failed)";
+                // Only show a scary error if the user *manually* clicked the button
+                if (!isAutoSync) error = "Sync Error. Check connection.";
+
+                SetSyncStatus(error, "#FF6B6B");
+                Console.WriteLine($"[SYNC ERROR]: {ex.Message}");
+            }
+            finally
+            {
+                if (SyncButton != null) SyncButton.IsEnabled = true;
+            }
+        }
+
+        // --- NEW: Helper to populate the visual list ---
+        private void RefreshVisualList()
+        {
+            var activeItems = _settings.Items
+                .Where(item => !item.IsDeleted)
+                .OrderBy(item => item.CreatedAt)
+                .ToList();
+
+            Reminders.Clear();
+            foreach (var item in activeItems)
+            {
+                Reminders.Add(item);
+            }
+        }
+
+        private void ConfigureUIMode()
+        {
+            if (_isGuest)
+            {
+                TitleText.Text = "Dashboard (Guest)";
+                LoginButton.Visibility = Visibility.Visible;
+                LogoutButton.Visibility = Visibility.Collapsed;
+                SyncButton.Visibility = Visibility.Collapsed;
+                LoadButton.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                TitleText.Text = $"Dashboard ({_currentUsername})";
+                LoginButton.Visibility = Visibility.Collapsed;
+                LogoutButton.Visibility = Visibility.Visible;
+                SyncButton.Visibility = Visibility.Visible;
+                LoadButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        // UPDATED: Now runs a sync on startup
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             InitializeTrayIcon();
-            // REMOVED: this.Hide();
-            // The window will now be visible on startup.
+            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            // NEW: Run one sync on startup for logged-in users
+            if (!_isGuest)
+            {
+                SetSyncStatus("Syncing...", "#AAFFFFFF");
+                await DoSmartSync(isAutoSync: true);
+            }
         }
 
         private void InitializeTrayIcon()
@@ -57,7 +185,7 @@ namespace FloatingReminder
 
             var contextMenu = new ContextMenu();
             contextMenu.MenuItems.Add("Show Dashboard", OnShowDashboard);
-            contextMenu.MenuItems.Add("Close Dashboard", OnMinimizeToTray); // NEW
+            contextMenu.MenuItems.Add("Close Dashboard", OnMinimizeToTray);
             contextMenu.MenuItems.Add("-");
             contextMenu.MenuItems.Add("Exit", OnExitApplication);
 
@@ -65,19 +193,15 @@ namespace FloatingReminder
             _notifyIcon.DoubleClick += OnShowDashboard;
         }
 
-        // --- HELPER METHOD ---
         private void SaveAndRefreshSettings()
         {
-            // Sort by creation time before saving
-            _settings.Items = Reminders.OrderBy(item => item.CreatedAt).ToList();
-
             if (double.TryParse(FontSizeInput.Text, out double fontSize))
             {
                 _settings.StartFontSize = fontSize;
             }
             _settings.IsGlowEnabled = GlowCheckBox.IsChecked == true;
 
-            SettingsService.SaveSettings(_settings);
+            SettingsService.SaveSettings(_settings, _currentUsername);
         }
 
         // --- DASHBOARD ACTIONS (UPDATED) ---
@@ -90,35 +214,44 @@ namespace FloatingReminder
 
             if (_editingItem != null)
             {
-                // Update existing item
-                _editingItem.Message = message;
-                _editingItem.DurationSeconds = duration;
-                // Note: We don't update the timestamp when editing
+                var itemToUpdate = _settings.Items.FirstOrDefault(i => i.Id == _editingItem.Id);
+                if (itemToUpdate != null)
+                {
+                    itemToUpdate.Message = message;
+                    itemToUpdate.DurationSeconds = duration;
+                    itemToUpdate.LastModified = DateTime.UtcNow; // Set timestamp
+                }
             }
             else
             {
-                // Create a new item (ID and Timestamp are set in constructor)
                 var newItem = new ReminderItem { Message = message, DurationSeconds = duration };
-                Reminders.Add(newItem);
+                _settings.Items.Add(newItem);
             }
 
-            // Refresh the list to show the new item
-            // We re-sort the underlying ObservableCollection
-            var sortedList = Reminders.OrderBy(item => item.CreatedAt).ToList();
-            Reminders.Clear();
-            foreach (var item in sortedList)
-            {
-                Reminders.Add(item);
-            }
+            SaveAndRefreshSettings();
+            RefreshVisualList();
 
-            // Clear inputs
             MessageInput.Text = "";
             DurationInput.Text = "5";
             AddButton.Content = "ADD MESSAGE";
             ErrorText.Visibility = Visibility.Collapsed;
-            _editingItem = null; // Ensure we are no longer in edit mode
+            _editingItem = null;
+        }
 
-            SaveAndRefreshSettings();
+        private void DeleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ReminderItem item)
+            {
+                var itemToMark = _settings.Items.FirstOrDefault(i => i.Id == item.Id);
+                if (itemToMark != null)
+                {
+                    itemToMark.IsDeleted = true;
+                    itemToMark.LastModified = DateTime.UtcNow; // Set timestamp
+                }
+
+                SaveAndRefreshSettings();
+                RefreshVisualList();
+            }
         }
 
         private void EditButton_Click(object sender, RoutedEventArgs e)
@@ -133,35 +266,6 @@ namespace FloatingReminder
             }
         }
 
-        private void DeleteButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button btn && btn.Tag is ReminderItem item)
-            {
-                Reminders.Remove(item);
-                SaveAndRefreshSettings();
-            }
-        }
-
-        private void ShowError(string message)
-        {
-            ErrorText.Text = message;
-            ErrorText.Visibility = Visibility.Visible;
-        }
-
-        // --- THEME & DRAGGING ---
-        private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
-        }
-
-        private void ChangeGradientButton_Click(object sender, RoutedEventArgs e)
-        {
-            _currentGradientIndex = (_currentGradientIndex + 1) % GradientPresets.SpotifyLikeGradients.Count;
-            BackgroundGrid.Background = GradientPresets.SpotifyLikeGradients[_currentGradientIndex];
-        }
-
-        // --- LAUNCH BUTTON ---
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             ErrorText.Visibility = Visibility.Collapsed;
@@ -172,104 +276,58 @@ namespace FloatingReminder
             _noteWindow?.Close();
             _noteWindow = new FloatingNoteWindow(_settings);
             _noteWindow.Show();
-            this.Hide(); // Hide dashboard when note is launched
+            this.Hide();
         }
 
-        // --- SYNC (UPLOAD) BUTTON ---
+        // UPDATED: This is now the MANUAL sync button
         private async void SyncButton_Click(object sender, RoutedEventArgs e)
         {
-            SyncStatusText.Text = "Syncing (Uploading)...";
-            SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#AAFFFFFF");
-            SyncStatusText.Visibility = Visibility.Visible;
-            SyncButton.IsEnabled = false;
-            LoadButton.IsEnabled = false;
-
-            try
-            {
-                SaveAndRefreshSettings(); // Saves and sorts the list
-                await MongoSyncService.UploadSettingsAsync(_settings);
-
-                SyncStatusText.Text = "Upload complete! ✨";
-                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#90EE90");
-            }
-            catch (Exception ex)
-            {
-                SyncStatusText.Text = "Sync Error. Check connection string or internet.";
-                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#FF6B6B");
-                Console.WriteLine($"[SYNC ERROR]: {ex.Message}");
-            }
-            finally
-            {
-                SyncButton.IsEnabled = true;
-                LoadButton.IsEnabled = true;
-            }
+            SetSyncStatus("Syncing...", "#AAFFFFFF");
+            // Run the sync logic, and show full errors if it fails
+            await DoSmartSync(isAutoSync: false);
         }
 
-        // --- LOAD (DOWNLOAD & MERGE) BUTTON (UPDATED) ---
-        private async void LoadButton_Click(object sender, RoutedEventArgs e)
+        // This old button is no longer used
+        private void LoadButton_Click(object sender, RoutedEventArgs e)
         {
-            SyncStatusText.Text = "Loading & Merging...";
-            SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#AAFFFFFF");
-            SyncStatusText.Visibility = Visibility.Visible;
-            LoadButton.IsEnabled = false;
-            SyncButton.IsEnabled = false;
+            // Replaced by SyncButton_Click
+        }
 
-            try
+        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        {
+            var loginWindow = new LoginWindow();
+            loginWindow.Show();
+
+            this.Close();
+        }
+
+        private void LogoutButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isLoggingOut = true;
+            // Stop the timer when we log out
+            _syncTimer?.Stop();
+
+            var loginWindow = new LoginWindow();
+            loginWindow.Show();
+            this.Close();
+        }
+
+        // --- APP LIFECYCLE ---
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_isLoggingOut)
             {
-                // 1. Get both local and cloud lists
-                var cloudSettings = await MongoSyncService.DownloadSettingsAsync();
-                var localItems = _settings.Items ?? new List<ReminderItem>();
-                var cloudItems = cloudSettings?.Items ?? new List<ReminderItem>();
-
-                if (cloudSettings == null)
-                {
-                    SyncStatusText.Text = "No settings found in cloud. Nothing to merge.";
-                    SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#FF6B6B");
-                    return;
-                }
-
-                // 2. Perform the merge
-                // This combines both lists, groups them by their unique ID,
-                // takes the first one from each group, and then sorts by time.
-                var mergedList = localItems.Concat(cloudItems)
-                                       .GroupBy(item => item.Id)
-                                       .Select(group => group.First())
-                                       .OrderBy(item => item.CreatedAt)
-                                       .ToList();
-
-                // 3. Update the main settings object
-                _settings.Items = mergedList;
-                // We keep local Font/Glow settings, they are not merged.
-
-                // 4. Update the UI
-                Reminders.Clear();
-                foreach (var item in mergedList)
-                {
-                    Reminders.Add(item);
-                }
-
-                // 5. Save the new merged list locally
-                SettingsService.SaveSettings(_settings);
-                // We do NOT auto-upload. This lets the user verify.
-
-                // 6. Report success
-                SyncStatusText.Text = $"Merge complete! Total items: {mergedList.Count}";
-                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#90EE90");
+                e.Cancel = false;
+                return;
             }
-            catch (Exception ex)
+            if (!_isGuest)
             {
-                SyncStatusText.Text = "Load Error. Check connection or internet.";
-                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString("#FF6B6B");
-                Console.WriteLine($"[LOAD ERROR]: {ex.Message}");
-            }
-            finally
-            {
-                LoadButton.IsEnabled = true;
-                SyncButton.IsEnabled = true;
+                e.Cancel = true;
+                OnMinimizeToTray(null, EventArgs.Empty);
             }
         }
 
-        // --- APP LIFECYCLE (UPDATED) ---
         private void OnShowDashboard(object sender, EventArgs e)
         {
             this.Show();
@@ -277,13 +335,11 @@ namespace FloatingReminder
             if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         }
 
-        // NEW: Minimize to tray
         private void OnMinimizeToTray(object sender, EventArgs e)
         {
             this.Hide();
         }
 
-        // NEW: Minimize button click
         private void MinimizeButton_Click(object sender, RoutedEventArgs e)
         {
             OnMinimizeToTray(null, EventArgs.Empty);
@@ -301,11 +357,36 @@ namespace FloatingReminder
             OnExitApplication(null, EventArgs.Empty);
         }
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        // --- Other Helpers ---
+
+        private void ShowError(string message)
         {
-            // Re-route the window's 'X' button to minimize instead of close
-            e.Cancel = true;
-            OnMinimizeToTray(null, EventArgs.Empty);
+            ErrorText.Text = message;
+            ErrorText.Visibility = Visibility.Visible;
+        }
+
+        private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
+        }
+
+        private void ChangeGradientButton_Click(object sender, RoutedEventArgs e)
+        {
+            _currentGradientIndex = (_currentGradientIndex + 1) % GradientPresets.SpotifyLikeGradients.Count;
+            BackgroundGrid.Background = GradientPresets.SpotifyLikeGradients[_currentGradientIndex];
+        }
+
+        private void SetSyncStatus(string message, string color)
+        {
+            // Use Dispatcher to ensure UI update is on the main thread
+            // This is safer when called from background timers
+            Dispatcher.Invoke(() =>
+            {
+                SyncStatusText.Text = message;
+                SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString(color);
+                SyncStatusText.Visibility = Visibility.Visible;
+            });
         }
     }
 }
