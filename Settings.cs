@@ -9,18 +9,23 @@ namespace FloatingReminder
         [BsonId]
         public string Id { get; set; }
 
-        public List<ReminderItem> Items { get; set; }
+        // This is the "active" list, or "workspace"
+        [BsonElement("activeMessageList")]
+        public List<ReminderItem> ActiveMessageList { get; set; }
+
+        // This is the ID of the collection we are currently editing
+        [BsonElement("activeCollectionId")]
+        public string ActiveCollectionId { get; set; }
+
         public double StartFontSize { get; set; }
         public bool IsGlowEnabled { get; set; }
 
         public Settings()
         {
-            // Update to use the new constructor
-            Items = new List<ReminderItem>
-            {
-                new ReminderItem { Message = "Welcome to your new dashboard! ✨", DurationSeconds = 5 },
-                new ReminderItem { Message = "Add your own messages below 👇", DurationSeconds = 8 }
-            };
+            // The active list is now empty by default
+            // A collection must be opened first
+            ActiveMessageList = new List<ReminderItem>();
+            ActiveCollectionId = null;
             StartFontSize = 60;
             IsGlowEnabled = true;
         }

@@ -165,9 +165,11 @@
     <Compile Include="LoginWindow.xaml.cs">
       <DependentUpon>LoginWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="MessageCollection.cs" />
     <Compile Include="MongoSyncService.cs" />
     <Compile Include="NetworkService.cs" />
     <Compile Include="RemainderItem.cs" />
+    <Compile Include="ReminderCollection.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="SettingsService.cs" />
     <Compile Include="SignUpWindow.xaml.cs">

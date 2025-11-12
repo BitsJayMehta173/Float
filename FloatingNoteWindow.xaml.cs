@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
 
 namespace FloatingReminder
@@ -20,11 +22,14 @@ namespace FloatingReminder
         private readonly DoubleAnimation _fadeOutAnim;
         private readonly DoubleAnimation _fadeInAnim;
 
-        public FloatingNoteWindow(Settings settings)
+        // --- UPDATED CONSTRUCTOR ---
+        // It now takes the list of items AND the settings separately.
+        public FloatingNoteWindow(List<ReminderItem> items, Settings settings)
         {
             InitializeComponent();
 
-            _items = settings.Items ?? new List<ReminderItem>();
+            _items = items.Where(i => !i.IsDeleted).ToList() ?? new List<ReminderItem>();
+
             if (_items.Count == 0) _items.Add(new ReminderItem { Message = "No messages configured.", DurationSeconds = 10 });
 
             _currentIndex = 0;
@@ -32,9 +37,12 @@ namespace FloatingReminder
             // Initial Setup
             ReminderText.Text = _items[0].Message;
             ReminderText.FontSize = settings.StartFontSize;
-            if (!settings.IsGlowEnabled) ReminderText.Effect = null;
+            if (settings.IsGlowEnabled)
+            {
+                ReminderText.Effect = (DropShadowEffect)this.Resources["SilverGlow"];
+            }
 
-            // Animations
+            // (Rest of the file is unchanged)
             _fadeOutAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(250))
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
@@ -49,7 +57,6 @@ namespace FloatingReminder
             };
             _fadeInAnim.Completed += (s, e) => ReminderText.Opacity = 1;
 
-            // Timer
             _textChangeTimer = new DispatcherTimer();
             _textChangeTimer.Tick += TextChangeTimer_Tick;
             StartTimerForItem(_currentIndex);
@@ -62,7 +69,6 @@ namespace FloatingReminder
             _textChangeTimer.Start();
         }
 
-        // FIX: This method body was corrupted. It is now fixed.
         private void TextChangeTimer_Tick(object sender, EventArgs e)
         {
             ReminderText.BeginAnimation(OpacityProperty, _fadeOutAnim);
@@ -82,7 +88,6 @@ namespace FloatingReminder
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             _textChangeTimer.Stop();
-            // Animate window fade out before closing
             var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
             fadeOut.Completed += (s, a) => this.Close();
             this.BeginAnimation(OpacityProperty, fadeOut);
