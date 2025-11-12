@@ -22,18 +22,22 @@ namespace FloatingReminder
         private FloatingNoteWindow _noteWindow;
         private int _currentGradientIndex = 0;
 
+        // --- UI-Bound Lists ---
         public ObservableCollection<ReminderItem> Reminders { get; set; } = new ObservableCollection<ReminderItem>();
+        public ObservableCollection<ReminderCollection> Collections { get; set; } = new ObservableCollection<ReminderCollection>();
+        public ObservableCollection<FriendRequest> PendingRequests { get; set; } = new ObservableCollection<FriendRequest>();
+
         private ReminderItem _editingItem = null;
 
-        private Settings _settings;
+        // --- Master Data ---
+        private Settings _settings; // Holds preferences (font, etc.) and ActiveCollectionId
+        private List<ReminderCollection> _masterCollections; // The "real" list of all collections
+        private ReminderCollection _activeCollection; // The collection currently being edited in the "Messages" tab
 
         private readonly string _currentUsername;
         private readonly bool _isGuest;
         private bool _isLoggingOut = false;
-
         private DispatcherTimer _syncTimer;
-
-        public ObservableCollection<FriendRequest> PendingRequests { get; set; } = new ObservableCollection<FriendRequest>();
 
         public MainWindow(string username, bool isGuest)
         {
@@ -42,17 +46,10 @@ namespace FloatingReminder
             _currentUsername = username;
             _isGuest = isGuest;
 
-            _settings = SettingsService.LoadSettings(_currentUsername);
-
+            // Bind the ListViews to their ObservableCollections
             RemindersList.ItemsSource = Reminders;
-            RefreshVisualList();
-
+            CollectionsList.ItemsSource = Collections;
             FriendRequestsList.ItemsSource = PendingRequests;
-
-            FontSizeInput.Text = _settings.StartFontSize.ToString();
-            GlowCheckBox.IsChecked = _settings.IsGlowEnabled;
-
-            ConfigureUIMode();
 
             if (!_isGuest)
             {
@@ -63,9 +60,26 @@ namespace FloatingReminder
             }
         }
 
+        // --- SYNC LOGIC ---
+
         private async void OnAutoSyncTimer_Tick(object sender, EventArgs e)
         {
             await DoSmartSync(isAutoSync: true);
+        }
+
+        private List<T> MergeLists<T>(List<T> local, List<T> cloud) where T : class
+        {
+            // This generic helper can merge ReminderItems OR ReminderCollections
+            var allItems = local.Concat(cloud).GroupBy(item => (item as dynamic).Id);
+
+            var finalList = allItems.Select(group =>
+            {
+                // Find the item with the latest 'LastModified' date
+                return group.OrderByDescending(item => (item as dynamic).LastModified).First();
+            })
+                .ToList();
+
+            return finalList;
         }
 
         private async Task DoSmartSync(bool isAutoSync = false)
@@ -75,24 +89,32 @@ namespace FloatingReminder
 
             try
             {
-                var localItems = _settings.Items ?? new List<ReminderItem>();
-                var cloudSettings = await MongoSyncService.DownloadSettingsAsync(_currentUsername);
-                var cloudItems = cloudSettings?.Items ?? new List<ReminderItem>();
+                var localSettings = _settings;
+                var cloudSettings = await MongoSyncService.DownloadSettingsAsync(_currentUsername) ?? new Settings();
 
-                var allItems = localItems.Concat(cloudItems)
-                                         .GroupBy(item => item.Id);
+                var localCollections = _masterCollections;
+                var cloudCollections = await MongoSyncService.LoadCollectionsFromCloudAsync(_currentUsername);
 
-                var finalMergedList = allItems.Select(group =>
-                {
-                    return group.OrderByDescending(item => item.LastModified).First();
-                })
-                    .ToList();
+                // Merge the user's preferences
+                var finalSettings = (cloudSettings.Id == null) ? localSettings : cloudSettings;
 
-                _settings.Items = finalMergedList;
-                SaveAndRefreshSettings();
+                // Merge the collections
+                var finalCollectionsList = MergeLists(localCollections, cloudCollections);
+
+                _settings = finalSettings;
+                _masterCollections = finalCollectionsList;
+
+                // Save both master lists locally
+                SettingsService.SaveSettings(_settings, _currentUsername);
+                SettingsService.SaveCollections(_masterCollections, _currentUsername);
+
+                // Save both master lists to the cloud
                 await MongoSyncService.UploadSettingsAsync(_settings, _currentUsername);
+                await MongoSyncService.SaveCollectionsToCloudAsync(_masterCollections, _currentUsername);
 
-                RefreshVisualList();
+                // Refresh the UI from the new master lists
+                RefreshCollectionsList();
+                LoadActiveCollection(_settings.ActiveCollectionId); // This reloads the "Messages" tab
 
                 SetSyncStatus($"✅ Synced ({DateTime.Now:h:mm tt})", "#90EE90");
             }
@@ -110,18 +132,56 @@ namespace FloatingReminder
             }
         }
 
+        // This is a specific helper for ReminderItems
+        private List<ReminderItem> MergeItems(List<ReminderItem> local, List<ReminderItem> cloud)
+        {
+            var allItems = local.Concat(cloud).GroupBy(item => item.Id);
+            var finalList = allItems.Select(group =>
+            {
+                return group.OrderByDescending(item => item.LastModified).First();
+            })
+                .ToList();
+            return finalList;
+        }
+
+        // --- UI REFRESH HELPERS ---
+
         private void RefreshVisualList()
         {
-            var activeItems = _settings.Items
+            Reminders.Clear();
+            if (_activeCollection == null)
+            {
+                // No collection is open. Disable the UI.
+                MessagesTab.IsEnabled = false;
+                return;
+            }
+
+            MessagesTab.IsEnabled = true;
+            var activeItems = _activeCollection.Items
                 .Where(item => !item.IsDeleted)
                 .OrderBy(item => item.CreatedAt)
                 .ToList();
 
-            Reminders.Clear();
             foreach (var item in activeItems)
             {
                 Reminders.Add(item);
             }
+        }
+
+        private void RefreshCollectionsList()
+        {
+            var activeCollections = _masterCollections
+                .Where(c => !c.IsDeleted)
+                .OrderBy(c => c.Title)
+                .ToList();
+
+            Collections.Clear();
+            foreach (var col in activeCollections)
+            {
+                Collections.Add(col);
+            }
+
+            NoCollectionsText.Visibility = activeCollections.Any() ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void ConfigureUIMode()
@@ -146,13 +206,57 @@ namespace FloatingReminder
             }
         }
 
+        // --- NEW: Helper to load a collection into the editor ---
+        private void LoadActiveCollection(string collectionId)
+        {
+            if (string.IsNullOrEmpty(collectionId))
+            {
+                _activeCollection = null;
+            }
+            else
+            {
+                _activeCollection = _masterCollections.FirstOrDefault(c => c.Id == collectionId && !c.IsDeleted);
+            }
+
+            if (_activeCollection == null)
+            {
+                // The active collection was deleted or not found
+                // Create a new "default" list for the user
+                _activeCollection = new ReminderCollection { Title = "My First List" };
+                _masterCollections.Add(_activeCollection);
+                SaveCollections();
+            }
+
+            // Save this as the new active ID
+            _settings.ActiveCollectionId = _activeCollection?.Id;
+            SaveAppSettings();
+            RefreshVisualList();
+
+            // Update the header subtitle
+            if (HeaderSubtitle != null)
+            {
+                HeaderSubtitle.Text = $"Editing: {_activeCollection.Title}";
+            }
+        }
+
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             InitializeTrayIcon();
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            // Load local data first
+            _settings = SettingsService.LoadSettings(_currentUsername);
+            _masterCollections = SettingsService.LoadCollections(_currentUsername);
+
+            RefreshCollectionsList();
+            LoadActiveCollection(_settings.ActiveCollectionId);
+
+            FontSizeInput.Text = _settings.StartFontSize.ToString();
+            GlowCheckBox.IsChecked = _settings.IsGlowEnabled;
+
             if (!_isGuest)
             {
+                // Now sync with the cloud
                 SetSyncStatus("Syncing...", "#AAFFFFFF");
                 await DoSmartSync(isAutoSync: true);
                 await LoadFriendRequestsAsync();
@@ -178,7 +282,7 @@ namespace FloatingReminder
             _notifyIcon.DoubleClick += OnShowDashboard;
         }
 
-        private void SaveAndRefreshSettings()
+        private void SaveAppSettings()
         {
             if (double.TryParse(FontSizeInput.Text, out double fontSize))
             {
@@ -186,20 +290,34 @@ namespace FloatingReminder
             }
             _settings.IsGlowEnabled = GlowCheckBox.IsChecked == true;
 
+            _settings.ActiveCollectionId = _activeCollection?.Id;
+
             SettingsService.SaveSettings(_settings, _currentUsername);
         }
 
-        // --- DASHBOARD ACTIONS ---
+        // Saves just the collection data
+        private void SaveCollections()
+        {
+            SettingsService.SaveCollections(_masterCollections, _currentUsername);
+        }
+
+        // --- MESSAGES TAB ACTIONS ---
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_activeCollection == null)
+            {
+                ShowError("Please open or create a collection first.");
+                return;
+            }
+
             string message = MessageInput.Text.Trim();
             if (string.IsNullOrWhiteSpace(message)) { ShowError("Message can't be empty."); return; }
             if (!int.TryParse(DurationInput.Text, out int duration) || duration <= 0) { ShowError("Duration must be a positive number."); return; }
 
             if (_editingItem != null)
             {
-                var itemToUpdate = _settings.Items.FirstOrDefault(i => i.Id == _editingItem.Id);
+                var itemToUpdate = _activeCollection.Items.FirstOrDefault(i => i.Id == _editingItem.Id);
                 if (itemToUpdate != null)
                 {
                     itemToUpdate.Message = message;
@@ -210,10 +328,11 @@ namespace FloatingReminder
             else
             {
                 var newItem = new ReminderItem { Message = message, DurationSeconds = duration };
-                _settings.Items.Add(newItem);
+                _activeCollection.Items.Add(newItem);
             }
 
-            SaveAndRefreshSettings();
+            _activeCollection.LastModified = DateTime.UtcNow; // Mark collection as modified
+            SaveCollections(); // Save master collections list to local file
             RefreshVisualList();
 
             MessageInput.Text = "";
@@ -225,16 +344,18 @@ namespace FloatingReminder
 
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_activeCollection == null) return;
             if (sender is Button btn && btn.Tag is ReminderItem item)
             {
-                var itemToMark = _settings.Items.FirstOrDefault(i => i.Id == item.Id);
+                var itemToMark = _activeCollection.Items.FirstOrDefault(i => i.Id == item.Id);
                 if (itemToMark != null)
                 {
                     itemToMark.IsDeleted = true;
                     itemToMark.LastModified = DateTime.UtcNow;
                 }
 
-                SaveAndRefreshSettings();
+                _activeCollection.LastModified = DateTime.UtcNow; // Mark collection as modified
+                SaveCollections();
                 RefreshVisualList();
             }
         }
@@ -253,16 +374,112 @@ namespace FloatingReminder
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_activeCollection == null)
+            {
+                ShowError("Please open a collection to launch.");
+                return;
+            }
+
             ErrorText.Visibility = Visibility.Collapsed;
             if (Reminders.Count == 0) { ShowError("Please add at least one message."); return; }
 
-            SaveAndRefreshSettings();
+            SaveAppSettings(); // Save latest font/glow settings
 
             _noteWindow?.Close();
-            _noteWindow = new FloatingNoteWindow(_settings);
+            // Pass the active collection's items and the app settings
+            _noteWindow = new FloatingNoteWindow(_activeCollection.Items, _settings);
             _noteWindow.Show();
             this.Hide();
         }
+
+        // --- COLLECTIONS TAB ACTIONS ---
+
+        private void CreateCollectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            string title = NewColTitleBox.Text.Trim();
+            if (string.IsNullOrEmpty(title) || title == "New Collection Title")
+            {
+                SetFriendStatus("Please enter a valid title.", "#FF6B6B"); // Use FriendStatus for this tab
+                return;
+            }
+
+            var newCollection = new ReminderCollection
+            {
+                Title = title,
+                LastModified = DateTime.UtcNow
+            };
+
+            _masterCollections.Add(newCollection);
+
+            SaveCollections();
+            RefreshCollectionsList();
+
+            // Auto-open the new collection
+            LoadActiveCollection(newCollection.Id);
+            MainTabControl.SelectedItem = MessagesTab;
+
+            NewColTitleBox.Text = "New Collection Title";
+            SetFriendStatus("", "#FF6B6B"); // Clear error
+        }
+
+        private void Collection_OpenButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ReminderCollection collection)
+            {
+                LoadActiveCollection(collection.Id);
+                MainTabControl.SelectedItem = MessagesTab;
+            }
+        }
+
+        private async void Collection_DeleteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ReminderCollection collection)
+            {
+                var collectionToMark = _masterCollections.FirstOrDefault(c => c.Id == collection.Id);
+
+                if (collectionToMark != null)
+                {
+                    collectionToMark.IsDeleted = true;
+                    collectionToMark.LastModified = DateTime.UtcNow;
+
+                    // If we deleted the one we're editing, clear the editor
+                    if (_activeCollection?.Id == collectionToMark.Id)
+                    {
+                        LoadActiveCollection(null);
+                    }
+
+                    SaveCollections();
+                    RefreshCollectionsList();
+
+                    if (!_isGuest)
+                    {
+                        SetSyncStatus("Syncing deletion...", "#AAFFFFFF");
+                        await DoSmartSync(isAutoSync: true);
+                    }
+                }
+            }
+        }
+
+        // --- TAB CONTROL HELPER ---
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (HeaderSubtitle == null) return;
+
+            if (MainTabControl.SelectedItem == MessagesTab)
+            {
+                HeaderSubtitle.Text = _activeCollection != null ? $"Editing: {_activeCollection.Title}" : "No Collection Open";
+            }
+            else if (MainTabControl.SelectedItem == CollectionsTab)
+            {
+                HeaderSubtitle.Text = "Your saved message collections.";
+            }
+            else if (MainTabControl.SelectedItem == FriendsTab)
+            {
+                HeaderSubtitle.Text = "Manage your friends and requests.";
+            }
+        }
+
+        #region Unchanged Methods
 
         private async void SyncButton_Click(object sender, RoutedEventArgs e)
         {
@@ -287,8 +504,6 @@ namespace FloatingReminder
             loginWindow.Show();
             this.Close();
         }
-
-        // --- APP LIFECYCLE ---
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
@@ -334,8 +549,6 @@ namespace FloatingReminder
             OnExitApplication(null, EventArgs.Empty);
         }
 
-        // --- Helper methods ---
-
         private void ShowError(string message)
         {
             ErrorText.Text = message;
@@ -363,8 +576,6 @@ namespace FloatingReminder
                 SyncStatusText.Visibility = Visibility.Visible;
             });
         }
-
-        // --- FRIENDS TAB METHODS ---
 
         private void SetFriendStatus(string message, string color)
         {
@@ -486,5 +697,6 @@ namespace FloatingReminder
                 }
             }
         }
+        #endregion
     }
 }

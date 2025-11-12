@@ -54,6 +54,7 @@
                            Text="Your Text Here"
                            FontSize="60"
                            Foreground="White" />
+
                 <Border x:Name="ButtonHitbox"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
