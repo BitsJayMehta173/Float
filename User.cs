@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Collections.Generic; // Added
 
 namespace FloatingReminder
 {
@@ -13,5 +14,9 @@ namespace FloatingReminder
 
         [BsonElement("passwordHash")]
         public string PasswordHash { get; set; }
+
+        // --- NEW ---
+        [BsonElement("friendUsernames")]
+        public List<string> FriendUsernames { get; set; } = new List<string>();
     }
 }

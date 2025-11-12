@@ -12,7 +12,7 @@ using ContextMenu = System.Windows.Forms.ContextMenu;
 using System.Windows.Media;
 using System.Windows.Input;
 using System.Threading.Tasks;
-using System.Windows.Threading; // NEW: For the DispatcherTimer
+using System.Windows.Threading;
 
 namespace FloatingReminder
 {
@@ -31,8 +31,9 @@ namespace FloatingReminder
         private readonly bool _isGuest;
         private bool _isLoggingOut = false;
 
-        // --- NEW: Timer for auto-sync ---
         private DispatcherTimer _syncTimer;
+
+        public ObservableCollection<FriendRequest> PendingRequests { get; set; } = new ObservableCollection<FriendRequest>();
 
         public MainWindow(string username, bool isGuest)
         {
@@ -46,74 +47,58 @@ namespace FloatingReminder
             RemindersList.ItemsSource = Reminders;
             RefreshVisualList();
 
+            FriendRequestsList.ItemsSource = PendingRequests;
+
             FontSizeInput.Text = _settings.StartFontSize.ToString();
             GlowCheckBox.IsChecked = _settings.IsGlowEnabled;
 
             ConfigureUIMode();
 
-            // --- NEW: Start auto-sync timer if we are a logged-in user ---
             if (!_isGuest)
             {
                 _syncTimer = new DispatcherTimer();
-                _syncTimer.Interval = TimeSpan.FromMinutes(5); // Sync every 5 minutes
+                _syncTimer.Interval = TimeSpan.FromMinutes(5);
                 _syncTimer.Tick += OnAutoSyncTimer_Tick;
                 _syncTimer.Start();
             }
         }
 
-        // --- NEW: Auto-sync timer event ---
         private async void OnAutoSyncTimer_Tick(object sender, EventArgs e)
         {
-            // Run the sync logic, but flag it as "automatic"
-            // This will hide "Sync Error" messages and just show "Offline"
             await DoSmartSync(isAutoSync: true);
         }
 
-        // --- NEW: Reusable Smart Sync Logic ---
         private async Task DoSmartSync(bool isAutoSync = false)
         {
-            // Don't sync if we're a guest
             if (_isGuest) return;
-
-            // Disable button if it exists
             if (SyncButton != null) SyncButton.IsEnabled = false;
 
             try
             {
-                // 1. Get local items (master list, including deleted)
                 var localItems = _settings.Items ?? new List<ReminderItem>();
-
-                // 2. Get cloud items
                 var cloudSettings = await MongoSyncService.DownloadSettingsAsync(_currentUsername);
                 var cloudItems = cloudSettings?.Items ?? new List<ReminderItem>();
 
-                // 3. Combine and find "winners"
                 var allItems = localItems.Concat(cloudItems)
                                          .GroupBy(item => item.Id);
 
                 var finalMergedList = allItems.Select(group =>
                 {
-                    // Find the item with the latest 'LastModified' date
                     return group.OrderByDescending(item => item.LastModified).First();
                 })
                     .ToList();
 
-                // 4. Save the new "master list" everywhere
                 _settings.Items = finalMergedList;
-                SaveAndRefreshSettings(); // Saves locally
-                await MongoSyncService.UploadSettingsAsync(_settings, _currentUsername); // Uploads to cloud
+                SaveAndRefreshSettings();
+                await MongoSyncService.UploadSettingsAsync(_settings, _currentUsername);
 
-                // 5. Refresh the UI (this will filter out deleted items)
                 RefreshVisualList();
 
-                // 6. Report Success
                 SetSyncStatus($"✅ Synced ({DateTime.Now:h:mm tt})", "#90EE90");
             }
             catch (Exception ex)
             {
-                // 7. Report Failure
                 string error = "Offline. (Last sync failed)";
-                // Only show a scary error if the user *manually* clicked the button
                 if (!isAutoSync) error = "Sync Error. Check connection.";
 
                 SetSyncStatus(error, "#FF6B6B");
@@ -125,7 +110,6 @@ namespace FloatingReminder
             }
         }
 
-        // --- NEW: Helper to populate the visual list ---
         private void RefreshVisualList()
         {
             var activeItems = _settings.Items
@@ -149,6 +133,7 @@ namespace FloatingReminder
                 LogoutButton.Visibility = Visibility.Collapsed;
                 SyncButton.Visibility = Visibility.Collapsed;
                 LoadButton.Visibility = Visibility.Collapsed;
+                FriendsTab.Visibility = Visibility.Collapsed;
             }
             else
             {
@@ -157,20 +142,20 @@ namespace FloatingReminder
                 LogoutButton.Visibility = Visibility.Visible;
                 SyncButton.Visibility = Visibility.Visible;
                 LoadButton.Visibility = Visibility.Collapsed;
+                FriendsTab.Visibility = Visibility.Visible;
             }
         }
 
-        // UPDATED: Now runs a sync on startup
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             InitializeTrayIcon();
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            // NEW: Run one sync on startup for logged-in users
             if (!_isGuest)
             {
                 SetSyncStatus("Syncing...", "#AAFFFFFF");
                 await DoSmartSync(isAutoSync: true);
+                await LoadFriendRequestsAsync();
             }
         }
 
@@ -204,7 +189,7 @@ namespace FloatingReminder
             SettingsService.SaveSettings(_settings, _currentUsername);
         }
 
-        // --- DASHBOARD ACTIONS (UPDATED) ---
+        // --- DASHBOARD ACTIONS ---
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
         {
@@ -219,7 +204,7 @@ namespace FloatingReminder
                 {
                     itemToUpdate.Message = message;
                     itemToUpdate.DurationSeconds = duration;
-                    itemToUpdate.LastModified = DateTime.UtcNow; // Set timestamp
+                    itemToUpdate.LastModified = DateTime.UtcNow;
                 }
             }
             else
@@ -246,7 +231,7 @@ namespace FloatingReminder
                 if (itemToMark != null)
                 {
                     itemToMark.IsDeleted = true;
-                    itemToMark.LastModified = DateTime.UtcNow; // Set timestamp
+                    itemToMark.LastModified = DateTime.UtcNow;
                 }
 
                 SaveAndRefreshSettings();
@@ -279,34 +264,25 @@ namespace FloatingReminder
             this.Hide();
         }
 
-        // UPDATED: This is now the MANUAL sync button
         private async void SyncButton_Click(object sender, RoutedEventArgs e)
         {
             SetSyncStatus("Syncing...", "#AAFFFFFF");
-            // Run the sync logic, and show full errors if it fails
             await DoSmartSync(isAutoSync: false);
         }
 
-        // This old button is no longer used
-        private void LoadButton_Click(object sender, RoutedEventArgs e)
-        {
-            // Replaced by SyncButton_Click
-        }
+        private void LoadButton_Click(object sender, RoutedEventArgs e) { }
 
         private void LoginButton_Click(object sender, RoutedEventArgs e)
         {
             var loginWindow = new LoginWindow();
             loginWindow.Show();
-
             this.Close();
         }
 
         private void LogoutButton_Click(object sender, RoutedEventArgs e)
         {
             _isLoggingOut = true;
-            // Stop the timer when we log out
             _syncTimer?.Stop();
-
             var loginWindow = new LoginWindow();
             loginWindow.Show();
             this.Close();
@@ -316,12 +292,13 @@ namespace FloatingReminder
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (_isLoggingOut)
+            if (_isLoggingOut || _isGuest)
             {
+                _notifyIcon?.Dispose();
+                _noteWindow?.Close();
                 e.Cancel = false;
-                return;
             }
-            if (!_isGuest)
+            else
             {
                 e.Cancel = true;
                 OnMinimizeToTray(null, EventArgs.Empty);
@@ -357,7 +334,7 @@ namespace FloatingReminder
             OnExitApplication(null, EventArgs.Empty);
         }
 
-        // --- Other Helpers ---
+        // --- Helper methods ---
 
         private void ShowError(string message)
         {
@@ -379,14 +356,135 @@ namespace FloatingReminder
 
         private void SetSyncStatus(string message, string color)
         {
-            // Use Dispatcher to ensure UI update is on the main thread
-            // This is safer when called from background timers
             Dispatcher.Invoke(() =>
             {
                 SyncStatusText.Text = message;
                 SyncStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString(color);
                 SyncStatusText.Visibility = Visibility.Visible;
             });
+        }
+
+        // --- FRIENDS TAB METHODS ---
+
+        private void SetFriendStatus(string message, string color)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                FriendStatusText.Text = message;
+                FriendStatusText.Foreground = (System.Windows.Media.Brush)new BrushConverter().ConvertFromString(color);
+                FriendStatusText.Visibility = Visibility.Visible;
+            });
+        }
+
+        private async Task LoadFriendRequestsAsync()
+        {
+            if (!NetworkService.IsNetworkAvailable())
+            {
+                return;
+            }
+
+            try
+            {
+                var requests = await FriendService.GetPendingRequestsAsync(_currentUsername);
+                PendingRequests.Clear();
+                foreach (var req in requests)
+                {
+                    PendingRequests.Add(req);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FriendLoad Error]: {ex.Message}");
+            }
+        }
+
+        private async void SendRequestButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!NetworkService.IsNetworkAvailable())
+            {
+                SetFriendStatus("You must be online to send friend requests.", "#FF6B6B");
+                return;
+            }
+
+            string recipient = SearchUsernameBox.Text.Trim();
+            if (string.IsNullOrEmpty(recipient))
+            {
+                SetFriendStatus("Please enter a username.", "#FF6B6B");
+                return;
+            }
+
+            SendRequestButton.IsEnabled = false;
+            SetFriendStatus("Sending...", "#AAFFFFFF");
+
+            try
+            {
+                string result = await FriendService.SendFriendRequestAsync(_currentUsername, recipient);
+
+                if (result.StartsWith("Success"))
+                {
+                    SetFriendStatus(result, "#90EE90");
+                    SearchUsernameBox.Text = "";
+                }
+                else
+                {
+                    SetFriendStatus(result, "#FF6B6B");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetFriendStatus("An error occurred. Please try again.", "#FF6B6B");
+                Console.WriteLine($"[SendRequest Error]: {ex.Message}");
+            }
+            finally
+            {
+                SendRequestButton.IsEnabled = true;
+            }
+        }
+
+        private async void AcceptButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!NetworkService.IsNetworkAvailable())
+            {
+                SetSyncStatus("You must be online to accept requests.", "#FF6B6B");
+                return;
+            }
+
+            if (sender is Button btn && btn.Tag is FriendRequest request)
+            {
+                try
+                {
+                    await FriendService.AcceptRequestAsync(request);
+                    PendingRequests.Remove(request);
+                }
+                catch (Exception ex)
+                {
+                    SetSyncStatus("Error accepting request. Try again.", "#FF6B6B");
+                    Console.WriteLine($"[AcceptRequest Error]: {ex.Message}");
+                }
+            }
+        }
+
+        private async void DeclineButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!NetworkService.IsNetworkAvailable())
+            {
+                SetSyncStatus("You must be online to decline requests.", "#FF6B6B");
+                return;
+            }
+
+            if (sender is Button btn && btn.Tag is FriendRequest request)
+            {
+                try
+                {
+                    await FriendService.DeclineRequestAsync(request);
+                    PendingRequests.Remove(request);
+                }
+                catch (Exception ex)
+                {
+                    SetSyncStatus("Error declining request. Try again.", "#FF6B6B");
+                    Console.WriteLine($"[DeclineRequest Error]: {ex.Message}");
+                }
+            }
         }
     }
 }
