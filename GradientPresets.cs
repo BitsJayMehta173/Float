@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Windows.Media;
 
-namespace FloatingNote
+namespace FloatingReminder
 {
     public static class GradientPresets
     {
@@ -49,9 +49,8 @@ namespace FloatingNote
                 RadiusX = 1.5, RadiusY = 1.5,
                 GradientStops = new GradientStopCollection
                 {
-                    new GradientStop(Color.FromRgb(0xDF, 0xB6, 0xB2), 0.0), // Dusty Pink (Center of light)
-                    new GradientStop(Color.FromRgb(0x52, 0x2B, 0x5B), 0.5), // Medium Purple
-                    new GradientStop(Color.FromRgb(0x19, 0x00, 0x19), 1.0)  // Deep Purple (Edges)
+                    new GradientStop(Color.FromRgb(0xDF, 0xB6, 0xB2), 0.0), // Light Pink Center
+                    new GradientStop(Color.FromRgb(0x19, 0x00, 0x19), 0.9)  // Deep Purple Edge
                 }
             }
         };

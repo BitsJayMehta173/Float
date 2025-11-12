@@ -1,7 +1,7 @@
-﻿<Window x:Class="FloatingNote.FloatingNoteWindow"
+﻿<Window x:Class="FloatingReminder.FloatingNoteWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:local="clr-namespace:FloatingNote"
+        xmlns:local="clr-namespace:FloatingReminder"
         Title="Floating Note"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -15,14 +15,14 @@
         PreviewMouseWheel="Window_PreviewMouseWheel">
 
     <Window.Resources>
-        <!-- subtle silver text glow -->
         <DropShadowEffect x:Key="SilverGlow"
                           Color="Silver"
                           BlurRadius="6"
                           ShadowDepth="0"
                           Opacity="0.5"/>
 
-        <!-- round button template -->
+        <local:HalfSizeConverter x:Key="HalfSizeConverter" />
+
         <Style x:Key="CircleButtonStyle" TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
@@ -31,8 +31,7 @@
                             <Ellipse Fill="{TemplateBinding Background}"
                                      Stroke="{TemplateBinding BorderBrush}"
                                      StrokeThickness="{TemplateBinding BorderThickness}"/>
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -40,42 +39,21 @@
         </Style>
     </Window.Resources>
 
-    <!-- full-screen container -->
-    <Grid x:Name="RootGrid"
-          Background="Transparent">
-
-        <!-- draggable text area -->
-        <!-- Added Alignments and RenderTransformOrigin for center-popping effect -->
-        <Border x:Name="TextArea"
-                Background="Transparent"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                RenderTransformOrigin="0.5,0.5"
+    <Grid>
+        <Border x:Name="TextArea" Background="Transparent"
                 MouseLeftButtonDown="TextArea_MouseLeftButtonDown"
                 MouseMove="TextArea_MouseMove"
                 MouseLeftButtonUp="TextArea_MouseLeftButtonUp">
 
-            <!-- Defines both Scale (for pop) and Translate (for drag) -->
-            <Border.RenderTransform>
-                <TransformGroup>
-                    <ScaleTransform x:Name="PopScale" ScaleX="1" ScaleY="1"/>
-                    <TranslateTransform x:Name="DragTranslate" X="0" Y="0"/>
-                </TransformGroup>
-            </Border.RenderTransform>
+            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="DragTranslate" />
+                </Grid.RenderTransform>
 
-            <Grid>
-                <!-- the floating text -->
                 <TextBlock x:Name="ReminderText"
-                           Text="Take a deep breath 💨"
-                           Foreground="White"
+                           Text="Your Text Here"
                            FontSize="60"
-                           FontWeight="Bold"
-                           TextWrapping="Wrap"
-                           TextAlignment="Center"
-                           Effect="{StaticResource SilverGlow}"
-                           FontFamily="{x:Static local:FontLoader.NoteFontFamily}" />
-
-                <!-- Hitbox Border -->
+                           Foreground="White" />
                 <Border x:Name="ButtonHitbox"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
@@ -85,7 +63,6 @@
                         MouseEnter="ButtonHitbox_MouseEnter"
                         MouseLeave="ButtonHitbox_MouseLeave">
 
-                    <!-- close button -->
                     <Button x:Name="CloseButton"
                             Content="×"
                             Width="36"

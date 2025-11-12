@@ -1,16 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+using System.Collections.Generic;
 
-namespace FloatingNote
+namespace FloatingReminder
 {
     public class Settings
     {
-        // Now holds a list of complex items instead of just strings
+        [BsonId]
+        public string Id { get; set; }
+
         public List<ReminderItem> Items { get; set; }
         public double StartFontSize { get; set; }
         public bool IsGlowEnabled { get; set; }
 
         public Settings()
         {
+            // Update to use the new constructor
             Items = new List<ReminderItem>
             {
                 new ReminderItem { Message = "Welcome to your new dashboard! ✨", DurationSeconds = 5 },

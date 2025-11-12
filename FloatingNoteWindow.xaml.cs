@@ -7,7 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
-namespace FloatingNote
+namespace FloatingReminder
 {
     public partial class FloatingNoteWindow : Window
     {
@@ -15,7 +15,6 @@ namespace FloatingNote
         private Point _dragStart;
         private readonly DispatcherTimer _textChangeTimer;
         private int _currentIndex;
-        // Now using the list of complex items
         private readonly List<ReminderItem> _items;
 
         private readonly DoubleAnimation _fadeOutAnim;
@@ -41,135 +40,87 @@ namespace FloatingNote
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
                 FillBehavior = FillBehavior.Stop
             };
-            _fadeOutAnim.Completed += FadeOutAnim_Completed;
+            _fadeOutAnim.Completed += FadeOut_Completed;
 
-            _fadeInAnim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250))
+            _fadeInAnim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(350))
             {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn },
                 FillBehavior = FillBehavior.Stop
             };
+            _fadeInAnim.Completed += (s, e) => ReminderText.Opacity = 1;
 
-            UpdateCloseButtonSize();
-
-            // Initialize Timer (don't start yet if only 1 item)
-            _textChangeTimer = new DispatcherTimer(DispatcherPriority.Background);
+            // Timer
+            _textChangeTimer = new DispatcherTimer();
             _textChangeTimer.Tick += TextChangeTimer_Tick;
-
-            // Start timer for the FIRST item's duration
-            if (_items.Count > 1)
-            {
-                ResetTimerForCurrentItem();
-            }
+            StartTimerForItem(_currentIndex);
         }
 
-        private void ResetTimerForCurrentItem()
+        private void StartTimerForItem(int index)
         {
-            _textChangeTimer.Stop();
-            // Set interval based on the CURRENT item's desired duration
-            _textChangeTimer.Interval = TimeSpan.FromSeconds(_items[_currentIndex].DurationSeconds);
+            int durationSeconds = _items[index].DurationSeconds;
+            _textChangeTimer.Interval = TimeSpan.FromSeconds(durationSeconds);
             _textChangeTimer.Start();
         }
 
+        // FIX: This method body was corrupted. It is now fixed.
         private void TextChangeTimer_Tick(object sender, EventArgs e)
         {
-            // Time is up for the current message. Fade it out.
             ReminderText.BeginAnimation(OpacityProperty, _fadeOutAnim);
         }
 
-        private void FadeOutAnim_Completed(object sender, EventArgs e)
+        private void FadeOut_Completed(object sender, EventArgs e)
         {
-            // Move to next index
+            ReminderText.Opacity = 0;
             _currentIndex = (_currentIndex + 1) % _items.Count;
-
-            // Update text
             ReminderText.Text = _items[_currentIndex].Message;
-
-            // Fade back in
             ReminderText.BeginAnimation(OpacityProperty, _fadeInAnim);
-
-            // IMPORTANT: Start the timer for the NEW item's duration
-            ResetTimerForCurrentItem();
+            StartTimerForItem(_currentIndex);
         }
 
-        // =================================================================
-        //  BELOW IS UNCHANGED UI/DRAG/ZOOM LOGIC from previous versions
-        // =================================================================
+        // --- UI Event Handlers ---
 
-        private void UpdateCloseButtonSize()
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            double ratio = 0.3;
-            double btnSize = Math.Max(18, ReminderText.FontSize * ratio);
-            CloseButton.Width = btnSize;
-            CloseButton.Height = btnSize;
-            CloseButton.FontSize = Math.Max(10, btnSize * 0.5);
+            _textChangeTimer.Stop();
+            // Animate window fade out before closing
+            var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
+            fadeOut.Completed += (s, a) => this.Close();
+            this.BeginAnimation(OpacityProperty, fadeOut);
         }
 
         private void ButtonHitbox_MouseEnter(object sender, MouseEventArgs e)
         {
-            var anime = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
-            CloseButton.BeginAnimation(OpacityProperty, anime);
+            CloseButton.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));
         }
 
         private void ButtonHitbox_MouseLeave(object sender, MouseEventArgs e)
         {
-            var anime = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150));
-            CloseButton.BeginAnimation(OpacityProperty, anime);
+            CloseButton.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(300)));
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        private void UpdateCloseButtonSize()
         {
-            CloseButton.IsEnabled = false;
-            _textChangeTimer.Stop();
-
-            DoubleAnimationUsingKeyFrames popAnim = new DoubleAnimationUsingKeyFrames();
-            popAnim.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-            popAnim.KeyFrames.Add(new EasingDoubleKeyFrame(1.2, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(50))));
-            popAnim.KeyFrames.Add(new EasingDoubleKeyFrame(0.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(250))));
-
-            DoubleAnimation fadeAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
-            fadeAnim.BeginTime = TimeSpan.FromMilliseconds(50);
-
-            Storyboard storyboard = new Storyboard();
-
-            Storyboard.SetTarget(popAnim, TextArea);
-            Storyboard.SetTargetProperty(popAnim, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"));
-            storyboard.Children.Add(popAnim);
-
-            var popAnimY = popAnim.Clone();
-            Storyboard.SetTarget(popAnimY, TextArea);
-            Storyboard.SetTargetProperty(popAnimY, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"));
-            storyboard.Children.Add(popAnimY);
-
-            Storyboard.SetTarget(fadeAnim, TextArea);
-            Storyboard.SetTargetProperty(fadeAnim, new PropertyPath(OpacityProperty));
-            storyboard.Children.Add(fadeAnim);
-
-            storyboard.Completed += (s, args) => this.Close();
-            storyboard.Begin();
+            double scale = ReminderText.FontSize / 60.0;
+            double newSize = Math.Max(24, 36 * scale);
+            CloseButton.Width = newSize;
+            CloseButton.Height = newSize;
+            CloseButton.FontSize = Math.Max(12, 18 * scale);
         }
 
         private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            const double step = 5.0;
-            double delta = e.Delta > 0 ? step : -step;
-            double newSize = Math.Max(10, Math.Min(400, ReminderText.FontSize + delta));
-            AnimateFontSizeChange(newSize);
+            e.Handled = true;
+            double newSize = ReminderText.FontSize + (e.Delta > 0 ? 4 : -4);
+            newSize = Math.Max(10, Math.Min(400, newSize));
+            AnimateFontSize(newSize);
+            UpdateCloseButtonSize();
         }
 
-        private void AnimateFontSizeChange(double targetSize)
+        private void AnimateFontSize(double newSize)
         {
-            double from = ReminderText.FontSize;
-            if (Math.Abs(targetSize - from) < 0.1) return;
-
-            var anim = new DoubleAnimation(from, targetSize, TimeSpan.FromMilliseconds(80))
+            var anim = new DoubleAnimation(ReminderText.FontSize, newSize, TimeSpan.FromMilliseconds(100))
             {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-                FillBehavior = FillBehavior.Stop
-            };
-            anim.Completed += (s, e) =>
-            {
-                ReminderText.FontSize = targetSize;
-                UpdateCloseButtonSize();
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
             };
             ReminderText.BeginAnimation(TextBlock.FontSizeProperty, anim);
         }
