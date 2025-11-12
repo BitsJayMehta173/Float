@@ -23,12 +23,14 @@
             <GradientStop Color="#854F6C" Offset="0.0"/>
             <GradientStop Color="#190019" Offset="1.0"/>
         </LinearGradientBrush>
+
         <Style x:Key="GlassBorder" TargetType="Border">
             <Setter Property="Background" Value="#11FFFFFF"/>
             <Setter Property="BorderBrush" Value="#22FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
         </Style>
+
         <Style x:Key="GlassTextBox" TargetType="TextBox">
             <Setter Property="Background" Value="#11FFFFFF"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -39,13 +41,17 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <Border CornerRadius="8" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}">
                             <ScrollViewer x:Name="PART_ContentHost"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
         <Style x:Key="GlassButton" TargetType="Button">
             <Setter Property="Background" Value="#22FFFFFF"/>
             <Setter Property="Foreground" Value="White"/>
@@ -54,8 +60,11 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="border" CornerRadius="8" 
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -69,6 +78,51 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="MainTabItemStyle" TargetType="TabItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#99FFFFFF"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="Border" Background="{TemplateBinding Background}" 
+                                BorderThickness="0" Padding="15,10">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="Border" Property="Background" Value="#22FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SubTabItemStyle" TargetType="TabItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#99FFFFFF"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="Border" BorderBrush="#44FFFFFF" BorderThickness="0,0,0,2" Padding="10,5" Margin="0,0,10,0">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <Border CornerRadius="20" Padding="1" Background="Transparent">
@@ -83,12 +137,10 @@
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Border Grid.RowSpan="4" Background="Transparent" MouseLeftButtonDown="Border_MouseLeftButtonDown" />
+            <Border Grid.RowSpan="2" Background="Transparent" MouseLeftButtonDown="Border_MouseLeftButtonDown" />
 
             <StackPanel Grid.Row="0" Margin="25,20,25,15">
                 <Grid>
@@ -131,137 +183,223 @@
                            FontSize="13" Opacity="0.7" Margin="0,5,0,0"/>
             </StackPanel>
 
-            <Border Grid.Row="1" Margin="25,0,25,20" Padding="15" Style="{StaticResource GlassBorder}">
-                <StackPanel>
-                    <TextBox x:Name="MessageInput" Style="{StaticResource GlassTextBox}" Text="New Message" />
-                    <Grid Margin="0,10,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="DurationInput" Grid.Column="0" Style="{StaticResource GlassTextBox}" Text="5" />
-                        <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" Margin="8,0" Opacity="0.7"/>
-                        <Button x:Name="AddButton" Grid.Column="2" Content="ADD MESSAGE" 
-                                Style="{StaticResource GlassButton}" Padding="15,10"
-                                Click="AddButton_Click"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
+            <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0"
+                        TabStripPlacement="Bottom"
+                        Style="{StaticResource {x:Type TabControl}}">
 
-            <Border Grid.Row="2" Margin="25,0,25,20" Style="{StaticResource GlassBorder}">
-                <ListView x:Name="RemindersList" Background="Transparent" BorderThickness="0"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                          ItemsSource="{Binding Reminders}">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListViewItem">
-                                        <ContentPresenter/>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Margin="5" Padding="0,10">
-                                <Grid>
+                <TabItem Header="Messages" Style="{StaticResource MainTabItemStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Margin="25,0,25,20" Padding="15" Style="{StaticResource GlassBorder}">
+                            <StackPanel>
+                                <TextBox x:Name="MessageInput" Style="{StaticResource GlassTextBox}" Text="New Message" />
+                                <Grid Margin="0,10,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-
-                                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                        <TextBlock Text="{Binding Message}" 
-                                                   TextWrapping="Wrap" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding CreatedAt, StringFormat='Added: {0:MMM dd, yyyy h:mm tt}'}" 
-                                                   TextWrapping="Wrap" VerticalAlignment="Center"
-                                                   FontSize="9" Opacity="0.6" Margin="0,2,0,0"/>
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DurationSeconds}" FontWeight="Bold" Margin="0,0,3,0"/>
-                                        <TextBlock Text="sec" Opacity="0.7"/>
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="15,0,0,0">
-                                        <Button x:Name="EditButton" Content="Edit" 
-                                                Style="{StaticResource GlassButton}" Padding="10,5"
-                                                Tag="{Binding}" Click="EditButton_Click"/>
-                                        <Button x:Name="DeleteButton" Content="Del" 
-                                                Foreground="#FF6B6B"
-                                                Style="{StaticResource GlassButton}" Padding="10,5" Margin="5,0,0,0"
-                                                Tag="{Binding}" Click="DeleteButton_Click"/>
-                                    </StackPanel>
+                                    <TextBox x:Name="DurationInput" Grid.Column="0" Style="{StaticResource GlassTextBox}" Text="5" />
+                                    <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" Margin="8,0" Opacity="0.7"/>
+                                    <Button x:Name="AddButton" Grid.Column="2" Content="ADD MESSAGE" 
+                                            Style="{StaticResource GlassButton}" Padding="15,10"
+                                            Click="AddButton_Click"/>
                                 </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Margin="25,0,25,20" Style="{StaticResource GlassBorder}">
+                            <ListView x:Name="RemindersList" Background="Transparent" BorderThickness="0"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                      ItemsSource="{Binding Reminders}">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListViewItem">
+                                                    <ContentPresenter/>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Margin="5" Padding="0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <TextBlock Text="{Binding Message}" 
+                                                               TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding CreatedAt, StringFormat='Added: {0:MMM dd, yyyy h:mm tt}'}" 
+                                                               TextWrapping="Wrap" VerticalAlignment="Center"
+                                                               FontSize="9" Opacity="0.6" Margin="0,2,0,0"/>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding DurationSeconds}" FontWeight="Bold" Margin="0,0,3,0"/>
+                                                    <TextBlock Text="sec" Opacity="0.7"/>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="15,0,0,0">
+                                                    <Button x:Name="EditButton" Content="Edit" 
+                                                            Style="{StaticResource GlassButton}" Padding="10,5"
+                                                            Tag="{Binding}" Click="EditButton_Click"/>
+                                                    <Button x:Name="DeleteButton" Content="Del" 
+                                                            Foreground="#FF6B6B"
+                                                            Style="{StaticResource GlassButton}" Padding="10,5" Margin="5,0,0,0"
+                                                            Tag="{Binding}" Click="DeleteButton_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Border>
+
+                        <Grid Grid.Row="2" Margin="25,0,25,25">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Font Size" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBox x:Name="FontSizeInput" Grid.Column="1" 
+                                         Style="{StaticResource GlassTextBox}" Text="60"/>
+                                <CheckBox x:Name="GlowCheckBox" Grid.Column="2"
+                                          Content="Enable Glow Effect" IsChecked="True"
+                                          Foreground="White" VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <StackPanel Grid.Row="1">
+                                <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontWeight="Bold" 
+                                           HorizontalAlignment="Center" Margin="0,0,0,10" 
+                                           TextWrapping="Wrap" Visibility="Collapsed"/>
+
+                                <Button x:Name="StartButton" Content="LAUNCH FLOATING NOTE 🚀" 
+                                        Height="45" FontSize="14" FontWeight="Bold"
+                                        Background="White" Foreground="#1a2a6c" BorderThickness="0"
+                                        Cursor="Hand" Click="StartButton_Click">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="22.5"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
+
+                                <Button x:Name="SyncButton" 
+                                        Content="Sync with Cloud 🔄" 
+                                        Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
+                                        Cursor="Hand" Margin="0,10,0,0" FontSize="11"
+                                        Click="SyncButton_Click"/>
+
+                                <Button x:Name="LoadButton" Content="Merge from Cloud 🔄"
+                                        Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
+                                        Cursor="Hand" Margin="0,5,0,0" FontSize="11"
+                                        Visibility="Collapsed"/>
+
+                                <TextBlock x:Name="SyncStatusText" 
+                                           HorizontalAlignment="Center" Margin="0,5,0,-5"
+                                           Foreground="#FF6B6B" Visibility="Collapsed"
+                                           Text="Sync Status" TextWrapping="Wrap"/>
+
+                                <Button Content="Exit Application completely" 
+                                        Background="Transparent" BorderThickness="0" Foreground="#88FFFFFF"
+                                        Cursor="Hand" Margin="0,10,0,0" FontSize="11"
+                                        Click="ExitButton_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <TabItem x:Name="FriendsTab" Header="Friends" Style="{StaticResource MainTabItemStyle}">
+                    <TabControl Background="Transparent" BorderThickness="0" Margin="25,0,25,20"
+                                Style="{StaticResource {x:Type TabControl}}">
+
+                        <TabItem Header="Add Friend" Style="{StaticResource SubTabItemStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Enter username to send a request:" Opacity="0.7" Margin="0,15,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SearchUsernameBox" Grid.Column="0" Style="{StaticResource GlassTextBox}"/>
+                                    <Button x:Name="SendRequestButton" Grid.Column="1" Content="Send Request"
+                                            Style="{StaticResource GlassButton}" Padding="15,10" Margin="10,0,0,0"
+                                            Click="SendRequestButton_Click"/>
+                                </Grid>
+
+                                <TextBlock x:Name="FriendStatusText" HorizontalAlignment="Center" Margin="0,15,0,0"
+                                           Text="Status... " TextWrapping="Wrap" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </TabItem>
+
+                        <TabItem Header="Requests" Style="{StaticResource SubTabItemStyle}">
+                            <Border Style="{StaticResource GlassBorder}" Margin="0,15,0,0">
+                                <ListView x:Name="FriendRequestsList" Background="Transparent" BorderThickness="0">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListViewItem">
+                                                        <ContentPresenter/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Margin="5" Padding="0,10">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0" Text="{Binding SenderUsername}" 
+                                                               VerticalAlignment="Center" FontWeight="Bold"/>
+
+                                                    <Button x:Name="AcceptButton" Content="Accept"
+                                                            Foreground="#90EE90"
+                                                            Style="{StaticResource GlassButton}" Padding="10,5"
+                                                            Tag="{Binding}" Click="AcceptButton_Click"/>
+                                                    <Button x:Name="DeclineButton" Content="Decline" 
+                                                            Foreground="#FF6B6B" Margin="5,0,0,0"
+                                                            Style="{StaticResource GlassButton}" Padding="10,5"
+                                                            Grid.Column="2"
+                                                            Tag="{Binding}" Click="DeclineButton_Click"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
                             </Border>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Border>
+                        </TabItem>
+                    </TabControl>
+                </TabItem>
+            </TabControl>
 
-            <Grid Grid.Row="3" Margin="25,0,25,25">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <Grid Grid.Row="0" Margin="0,0,0,20">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Font Size" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBox x:Name="FontSizeInput" Grid.Column="1" 
-                             Style="{StaticResource GlassTextBox}" Text="60"/>
-                    <CheckBox x:Name="GlowCheckBox" Grid.Column="2"
-                              Content="Enable Glow Effect" IsChecked="True"
-                              Foreground="White" VerticalAlignment="Center"/>
-                </Grid>
-
-                <StackPanel Grid.Row="1">
-                    <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontWeight="Bold" 
-                           HorizontalAlignment="Center" Margin="0,0,0,10" 
-                           TextWrapping="Wrap" Visibility="Collapsed"/>
-
-                    <Button x:Name="StartButton" Content="LAUNCH FLOATING NOTE 🚀" 
-                        Height="45" FontSize="14" FontWeight="Bold"
-                        Background="White" Foreground="#1a2a6c" BorderThickness="0"
-                        Cursor="Hand" Click="StartButton_Click">
-                        <Button.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="22.5"/>
-                            </Style>
-                        </Button.Resources>
-                    </Button>
-
-                    <Button x:Name="SyncButton" 
-                            Content="Sync with Cloud 🔄" 
-                            Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
-                            Cursor="Hand" Margin="0,10,0,0" FontSize="11"
-                            Click="SyncButton_Click"/>
-
-                    <Button x:Name="LoadButton" Content="Merge from Cloud 🔄"
-                            Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
-                            Cursor="Hand" Margin="0,5,0,0" FontSize="11"
-                            Visibility="Collapsed"/>
-
-                    <TextBlock x:Name="SyncStatusText" 
-                               HorizontalAlignment="Center" Margin="0,5,0,-5"
-                               Foreground="#FF6B6B" Visibility="Collapsed"
-                               Text="Sync Status" TextWrapping="Wrap"/>
-
-                    <Button Content="Exit Application completely" 
-                        Background="Transparent" BorderThickness="0" Foreground="#88FFFFFF"
-                        Cursor="Hand" Margin="0,10,0,0" FontSize="11"
-                        Click="ExitButton_Click"/>
-                </StackPanel>
-            </Grid>
         </Grid>
     </Border>
 </Window>

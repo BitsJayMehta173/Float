@@ -159,11 +159,14 @@
     <Compile Include="FloatingNoteWindow.xaml.cs">
       <DependentUpon>FloatingNoteWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="FriendRequest.cs" />
+    <Compile Include="FriendService.cs" />
     <Compile Include="GradientPresets.cs" />
     <Compile Include="LoginWindow.xaml.cs">
       <DependentUpon>LoginWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="MongoSyncService.cs" />
+    <Compile Include="NetworkService.cs" />
     <Compile Include="RemainderItem.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="SettingsService.cs" />
