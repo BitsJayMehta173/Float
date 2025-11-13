@@ -18,6 +18,7 @@
         ShowInTaskbar="False"
         Foreground="White">
 
+    <!-- Resources are in App.xaml -->
     <Window.Resources>
     </Window.Resources>
 
@@ -31,23 +32,21 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <!-- Title Bar -->
             <Grid Grid.Row="0" Margin="10,10,10,0">
                 <TextBlock x:Name="TitleText" Text="Dashboard" 
                            FontSize="18" FontWeight="Bold" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0"/>
-
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="ChangeBgButton" Content="🎨" 
                             Style="{StaticResource GlassButton}" Padding="8,5"
                             Click="ChangeBgButton_Click"/>
-
                     <Button x:Name="LogoutButton" Content="⏏" 
                             ToolTip="Logout"
                             FontWeight="Bold"
                             Style="{StaticResource GlassButton}" Padding="10,5"
                             Margin="5,0,0,0"
                             Click="LogoutButton_Click"/>
-
                     <Button x:Name="CloseButton" Content="✕" 
                             ToolTip="Minimize to Tray"
                             Style="{StaticResource GlassButton}" Padding="10,5"
@@ -56,7 +55,9 @@
                 </StackPanel>
             </Grid>
 
+
             <TabControl x:Name="MainTabControl" Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="10">
+                <!-- TabControl Resources -->
                 <TabControl.Resources>
                     <Style TargetType="TabItem">
                         <Setter Property="Template">
@@ -77,6 +78,7 @@
                     </Style>
                 </TabControl.Resources>
 
+                <!-- COLLECTIONS TAB -->
                 <TabItem x:Name="CollectionsTab" Header="Collections" IsSelected="True">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -92,11 +94,23 @@
                                     <DataTemplate>
                                         <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Padding="5" Width="370">
                                             <Grid>
-                                                <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Title}" FontSize="14" 
-                                                               FontWeight="Bold"/>
+                                                               FontWeight="Bold"
+                                                               TextTrimming="CharacterEllipsis" 
+                                                               TextWrapping="NoWrap"
+                                                               Margin="0,0,5,0"/>
+
                                                     <TextBlock Text="{Binding OwnerUsername, StringFormat='(from {0})'}" 
-                                                               FontSize="10" Foreground="#AAFFFFFF">
+                                                               FontSize="10" Foreground="#AAFFFFFF"
+                                                               TextTrimming="CharacterEllipsis" 
+                                                               TextWrapping="NoWrap"
+                                                               Margin="0,0,5,0">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Visible"/>
@@ -110,12 +124,11 @@
                                                     </TextBlock>
                                                 </StackPanel>
 
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
                                                     <Button x:Name="OpenCollectionButton" Content="Open"
                                                             Foreground="#90EE90"
                                                             Style="{StaticResource GlassButton}" Padding="10,5"
                                                             Tag="{Binding}" Click="OpenCollectionButton_Click"/>
-
                                                     <Button x:Name="CopyCollectionButton" 
                                                             Content="Copy"
                                                             ToolTip="Make a private copy"
@@ -123,7 +136,6 @@
                                                             Foreground="#FFD700" Margin="5,0,0,0"
                                                             Tag="{Binding}" 
                                                             Click="CopyCollectionButton_Click"/>
-
                                                     <Button x:Name="ShareCollectionButton" 
                                                             Content="Invite"
                                                             Style="{StaticResource GlassButton}" Padding="10,5"
@@ -131,7 +143,6 @@
                                                             Tag="{Binding}" 
                                                             Click="ShareCollectionButton_Click"
                                                             IsEnabled="{Binding IsOwnedByCurrentUser}"/>
-
                                                     <Button x:Name="DeleteCollection" Content="Delete" 
                                                             Foreground="#FF6B6B" Margin="5,0,0,0"
                                                             Style="{StaticResource GlassButton}" Padding="10,5"
@@ -161,6 +172,7 @@
                     </Grid>
                 </TabItem>
 
+                <!-- FRIENDS TAB -->
                 <TabItem Header="Friends">
                     <TabControl Background="Transparent" BorderThickness="0">
                         <TabItem Header="Add Friend">
@@ -187,10 +199,13 @@
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding SenderUsername}" 
-                                                               VerticalAlignment="Center" FontWeight="Bold"/>
 
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <TextBlock Grid.Column="0" Text="{Binding SenderUsername}" 
+                                                               VerticalAlignment="Center" FontWeight="Bold"
+                                                               TextTrimming="CharacterEllipsis" 
+                                                               TextWrapping="NoWrap"/>
+
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                                                         <Button x:Name="AcceptButton" Content="Accept"
                                                                 Foreground="#90EE90"
                                                                 Style="{StaticResource GlassButton}" Padding="10,5"
@@ -210,6 +225,7 @@
                     </TabControl>
                 </TabItem>
 
+                <!-- REMINDERS TAB (MODIFIED) -->
                 <TabItem x:Name="RemindersTab" Header="Reminders" Visibility="Collapsed">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -225,7 +241,6 @@
                                     HorizontalAlignment="Left"
                                     Padding="10,5" Foreground="#87CEEB"
                                     Click="BackToCollections_Click"/>
-
                             <Button x:Name="LaunchFloatWindowButton" 
                                     Content="Launch Float Window"
                                     Style="{StaticResource GlassButton}"
@@ -246,12 +261,36 @@
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Message}" TextWrapping="Wrap" 
-                                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                                <Button x:Name="DeleteItem" Grid.Column="1" Content="Delete" 
-                                                        Foreground="#FF6B6B"
-                                                        Style="{StaticResource GlassButton}" Padding="10,5"
-                                                        Tag="{Binding}" Click="DeleteItem_Click"/>
+
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                    <!-- Main Reminder Text -->
+                                                    <TextBlock Text="{Binding Message}" 
+                                                               TextWrapping="NoWrap" 
+                                                               TextTrimming="CharacterEllipsis"
+                                                               FontSize="14"/>
+
+                                                    <!-- *** NEW: Metadata TextBlock *** -->
+                                                    <TextBlock FontSize="10" Foreground="#AAFFFFFF" Margin="0,2,0,0">
+                                                        <Run Text="Added by"/>
+                                                        <Run Text="{Binding OwnerUsername, FallbackValue='unknown'}" FontWeight="SemiBold"/>
+                                                        <Run Text="on"/>
+                                                        <Run Text="{Binding CreatedAt, StringFormat='MMM d, yyyy'}"/>
+                                                    </TextBlock>
+                                                </StackPanel>
+
+                                                <!-- Button StackPanel -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <!-- *** NEW: Edit Button *** -->
+                                                    <Button x:Name="EditItemButton" Content="Edit" 
+                                                            Foreground="#FFD700"
+                                                            Style="{StaticResource GlassButton}" Padding="10,5"
+                                                            Tag="{Binding}" Click="EditItemButton_Click"/>
+
+                                                    <Button x:Name="DeleteItem" Content="Delete" 
+                                                            Foreground="#FF6B6B" Margin="5,0,0,0"
+                                                            Style="{StaticResource GlassButton}" Padding="10,5"
+                                                            Tag="{Binding}" Click="DeleteItem_Click"/>
+                                                </StackPanel>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -259,24 +298,38 @@
                             </ListView>
                         </Border>
 
+                        <!-- *** MODIFIED: Add/Edit Item Grid *** -->
                         <Grid Grid.Row="2" Margin="0,10,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <!-- New column for Cancel -->
                             </Grid.ColumnDefinitions>
+
                             <TextBox x:Name="NewItemTextBox" Grid.Column="0" Margin="0,0,10,0"
                                      Text="New reminder..." Foreground="#AAFFFFFF"
                                      Background="#11FFFFFF" BorderThickness="0" Padding="10"
                                      VerticalContentAlignment="Center" GotFocus="NewItemTextBox_GotFocus" LostFocus="NewItemTextBox_LostFocus"/>
-                            <Button x:Name="AddItemButton" Grid.Column="1" Content="Add Item" 
+
+                            <!-- This button now says "Add Item" or "Save Item" -->
+                            <Button x:Name="SaveItemButton" Grid.Column="1" Content="Add Item" 
                                     Style="{StaticResource PrimaryButton}"
-                                    Click="AddItemButton_Click"/>
+                                    Click="SaveItemButton_Click"/>
+
+                            <!-- *** NEW: Cancel Edit Button (hidden by default) *** -->
+                            <Button x:Name="CancelEditButton" Grid.Column="2" Content="Cancel" 
+                                    Style="{StaticResource GlassButton}"
+                                    Foreground="#FF6B6B" Margin="5,0,0,0"
+                                    Visibility="Collapsed"
+                                    Click="CancelEditButton_Click"/>
                         </Grid>
                     </Grid>
                 </TabItem>
 
             </TabControl>
 
+            <!-- Status Bar -->
             <Border Grid.Row="2" Background="#11FFFFFF" Padding="10,5" CornerRadius="0,0,10,10">
                 <TextBlock x:Name="SyncStatusText" Text="Loading..." 
                            Foreground="#AAFFFFFF" FontSize="11"

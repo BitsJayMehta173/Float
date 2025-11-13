@@ -48,7 +48,6 @@ namespace FloatingReminder
         }
 
         #region Window and Tray Logic
-
         private void InitializeTrayIcon()
         {
             _notifyIcon = new System.Windows.Forms.NotifyIcon
@@ -57,28 +56,22 @@ namespace FloatingReminder
                 Visible = true,
                 Text = "Floating Reminder"
             };
-
             var contextMenu = new System.Windows.Forms.ContextMenu();
             contextMenu.MenuItems.Add("Show Dashboard", (s, e) => ShowDashboard());
             contextMenu.MenuItems.Add("Exit", (s, e) => ExitApplication());
             _notifyIcon.ContextMenu = contextMenu;
             _notifyIcon.DoubleClick += (s, e) => ShowDashboard();
         }
-
         private void ShowDashboard()
         {
             this.Show();
             this.WindowState = WindowState.Normal;
             this.Activate();
         }
-
         private void ExitApplication()
         {
             _isLoggingOut = true;
-
-            // Stop the real-time sync
             AppState.CleanupSession();
-
             _noteWindow?.Close();
             if (_notifyIcon != null)
             {
@@ -86,10 +79,8 @@ namespace FloatingReminder
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
             }
-
             Application.Current.Shutdown();
         }
-
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             if (_isLoggingOut)
@@ -102,14 +93,10 @@ namespace FloatingReminder
                 this.Hide();
             }
         }
-
         private void LogoutButton_Click(object sender, RoutedEventArgs e)
         {
             _isLoggingOut = true;
-
-            // Stop the real-time sync
             AppState.CleanupSession();
-
             _noteWindow?.Close();
             if (_notifyIcon != null)
             {
@@ -117,41 +104,33 @@ namespace FloatingReminder
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
             }
-
             var loginWindow = new LoginWindow();
             loginWindow.Show();
-
             this.Close();
         }
-
-
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             this.Hide();
         }
-
         private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ButtonState == MouseButtonState.Pressed)
                 DragMove();
         }
-
         private void ChangeBgButton_Click(object sender, RoutedEventArgs e)
         {
             _currentGradientIndex = (_currentGradientIndex + 1) % GradientPresets.SpotifyLikeGradients.Count;
             this.Background = GradientPresets.SpotifyLikeGradients[_currentGradientIndex];
         }
 
-
+        // --- MODIFIED: Now async ---
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             this.Background = GradientPresets.SpotifyLikeGradients[_currentGradientIndex];
             SetSyncStatus("Loading settings...", "#FFFFFF");
-
             _settings = SettingsService.LoadSettings(_username);
             _masterCollections = MongoSyncService.LoadCollectionsFromLocal(_username);
             LoadCollectionsFromMasterList();
-
             if (_isGuest)
             {
                 TitleText.Text = $"Dashboard (Guest)";
@@ -172,45 +151,29 @@ namespace FloatingReminder
                     SetSyncStatus("Error loading user data. Read-only.", "#FF6B6B");
                     Console.WriteLine($"[LoadUser Error]: {ex.Message}");
                 }
-
                 await SyncWithCloud();
-                await LoadPendingRequestsAsync(); // Load friend requests
-
-                // Start the real-time sync session
+                await LoadPendingRequestsAsync();
                 AppState.InitializeSession(_username, OnCloudUpdate);
             }
-
-            SetActiveCollection(_settings.ActiveCollectionId);
+            // --- MODIFIED: Now awaited ---
+            await SetActiveCollectionAsync(_settings.ActiveCollectionId);
         }
-
         #endregion
 
         #region Data Sync and Management
-
-        // --- NEW: This is the callback for the SyncManager ---
+        // --- MODIFIED: Now async ---
         private void OnCloudUpdate()
         {
-            // This is called from a background thread,
-            // so we MUST use the Dispatcher to update the UI.
             Dispatcher.Invoke(async () =>
             {
                 SetSyncStatus("Change detected, re-syncing...", "#FFD700");
-
-                // 1. Re-run the main cloud sync
                 await SyncWithCloud();
-
-                // 2. Re-set the active collection.
-                // This re-loads the item list in the Reminders tab
-                // in case the active collection was the one modified.
-                SetActiveCollection(_settings.ActiveCollectionId);
-
-                // 3. (Optional) Re-load friend requests
+                // --- MODIFIED: Now awaited ---
+                await SetActiveCollectionAsync(_settings.ActiveCollectionId);
                 await LoadPendingRequestsAsync();
-
                 SetSyncStatus("Sync complete.", "#90EE90");
             });
         }
-
         private async Task SyncWithCloud()
         {
             if (!NetworkService.IsNetworkAvailable())
@@ -218,12 +181,9 @@ namespace FloatingReminder
                 SetSyncStatus("Offline mode. Local data loaded.", "#FFFFFF");
                 return;
             }
-
             try
             {
-                // This service call now gets collections WE OWN or ARE SHARED WITH US
                 var cloudCollections = await MongoSyncService.LoadCollectionsFromCloudAsync(_username);
-
                 _masterCollections = cloudCollections;
                 MongoSyncService.SaveCollectionsToLocal(_masterCollections, _username);
                 LoadCollectionsFromMasterList();
@@ -235,14 +195,14 @@ namespace FloatingReminder
                 Console.WriteLine($"[Sync Error]: {ex.Message}");
             }
         }
-
         private void SaveMasterCollectionsToLocal()
         {
             MongoSyncService.SaveCollectionsToLocal(_masterCollections, _username);
             SetSyncStatus("Local data saved.", "#FFFFFF");
         }
 
-        private void SetActiveCollection(string collectionId)
+        // --- MODIFIED: Renamed to SetActiveCollectionAsync, now saves default collection ---
+        private async Task SetActiveCollectionAsync(string collectionId)
         {
             if (collectionId == null)
             {
@@ -261,20 +221,28 @@ namespace FloatingReminder
                     _activeCollection = new ReminderCollection
                     {
                         Title = "My First Collection",
-                        OwnerUsername = _username // Set owner
+                        OwnerUsername = _username
                     };
                     _activeCollection.IsOwnedByCurrentUser = true;
                     _masterCollections.Add(_activeCollection);
                     Collections.Add(_activeCollection);
+
+                    // --- THIS IS THE FIX ---
+                    // Save the newly created default collection to the cloud and local cache
+                    if (!_isGuest)
+                    {
+                        await MongoSyncService.SaveCollectionToCloudAsync(_activeCollection, _username);
+                        SaveMasterCollectionsToLocal();
+                    }
+                    // ---------------------
                 }
                 else
                 {
                     _activeCollection = _masterCollections.First();
                 }
             }
-
             _settings.ActiveCollectionId = _activeCollection.Id;
-            RefreshRemindersList(); // This just updates the ObservableCollection
+            RefreshRemindersList();
         }
 
         private void StartFloatingWindow()
@@ -286,7 +254,6 @@ namespace FloatingReminder
             _noteWindow = new FloatingNoteWindow(_activeCollection.Items, _settings);
             _noteWindow.Show();
         }
-
         private void SetSyncStatus(string message, string hexColor)
         {
             if (!Dispatcher.CheckAccess())
@@ -297,11 +264,9 @@ namespace FloatingReminder
             SyncStatusText.Text = message;
             SyncStatusText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hexColor));
         }
-
         #endregion
 
         #region Reminder Tab Logic
-
         private void BackToCollections_Click(object sender, RoutedEventArgs e)
         {
             if (_noteWindow != null)
@@ -309,11 +274,10 @@ namespace FloatingReminder
                 _noteWindow.Close();
                 _noteWindow = null;
             }
-
             MainTabControl.SelectedItem = CollectionsTab;
             RemindersTab.Visibility = Visibility.Collapsed;
+            ResetEditMode();
         }
-
         private void LaunchFloatWindow_Click(object sender, RoutedEventArgs e)
         {
             if (_activeCollection != null)
@@ -325,13 +289,12 @@ namespace FloatingReminder
                 SetSyncStatus("Error: No collection is active.", "#FF6B6B");
             }
         }
-
         private void RefreshRemindersList()
         {
             Reminders.Clear();
             if (_activeCollection != null)
             {
-                var activeItems = _activeCollection.Items.Where(i => !i.IsDeleted);
+                var activeItems = _activeCollection.Items.Where(i => !i.IsDeleted).OrderBy(i => i.CreatedAt);
                 foreach (var item in activeItems)
                 {
                     Reminders.Add(item);
@@ -343,166 +306,184 @@ namespace FloatingReminder
                 StartFloatingWindow();
             }
         }
-
-        private async void AddItemButton_Click(object sender, RoutedEventArgs e)
+        private async void SaveItemButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(NewItemTextBox.Text) || NewItemTextBox.Text == "New reminder...")
             {
                 return;
             }
-
-            var newItem = new ReminderItem
+            if (_editingItem == null)
             {
-                Message = NewItemTextBox.Text,
-                DurationSeconds = 5
-            };
-
-            _activeCollection.Items.Add(newItem);
-            _activeCollection.LastModified = DateTime.UtcNow;
-            Reminders.Add(newItem);
-
+                var newItem = new ReminderItem
+                {
+                    Message = NewItemTextBox.Text,
+                    DurationSeconds = 5,
+                    OwnerUsername = _username
+                };
+                _activeCollection.Items.Add(newItem);
+                _activeCollection.LastModified = DateTime.UtcNow;
+            }
+            else
+            {
+                _editingItem.Message = NewItemTextBox.Text;
+                _editingItem.LastModified = DateTime.UtcNow;
+                _activeCollection.LastModified = DateTime.UtcNow;
+                ResetEditMode();
+            }
             NewItemTextBox.Text = "New reminder...";
             NewItemTextBox.Foreground = new SolidColorBrush(Colors.Gray);
-
             SaveMasterCollectionsToLocal();
             await MongoSyncService.SaveCollectionToCloudAsync(_activeCollection, _username);
-
             RefreshRemindersList();
         }
-
+        private void EditItemButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ReminderItem item)
+            {
+                if (item.OwnerUsername != _username)
+                {
+                    SetSyncStatus("You can only edit reminders you created.", "#FF6B6B");
+                    return;
+                }
+                _editingItem = item;
+                NewItemTextBox.Text = item.Message;
+                NewItemTextBox.Foreground = new SolidColorBrush(Colors.White);
+                NewItemTextBox.Focus();
+                SaveItemButton.Content = "Save";
+                CancelEditButton.Visibility = Visibility.Visible;
+            }
+        }
+        private void CancelEditButton_Click(object sender, RoutedEventArgs e)
+        {
+            ResetEditMode();
+        }
+        private void ResetEditMode()
+        {
+            _editingItem = null;
+            NewItemTextBox.Text = "New reminder...";
+            NewItemTextBox.Foreground = new SolidColorBrush(Colors.Gray);
+            SaveItemButton.Content = "Add Item";
+            CancelEditButton.Visibility = Visibility.Collapsed;
+        }
         private async void DeleteItem_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ReminderItem item)
             {
-                item.IsDeleted = true; // Soft delete
+                if (item.OwnerUsername != _username && _activeCollection.OwnerUsername != _username)
+                {
+                    SetSyncStatus("You can only delete reminders you or the collection owner created.", "#FF6B6B");
+                    return;
+                }
+                item.IsDeleted = true;
                 item.LastModified = DateTime.UtcNow;
                 _activeCollection.LastModified = DateTime.UtcNow;
-
                 Reminders.Remove(item);
-
                 SaveMasterCollectionsToLocal();
                 await MongoSyncService.SaveCollectionToCloudAsync(_activeCollection, _username);
-
                 RefreshRemindersList();
             }
         }
-
         #endregion
 
         #region Collection Tab Logic
-
         private void LoadCollectionsFromMasterList()
         {
             Collections.Clear();
             foreach (var col in _masterCollections.Where(c => !c.IsDeleted).OrderBy(c => c.Title))
             {
-                // Set the IsOwned property for UI bindings
                 col.IsOwnedByCurrentUser = (col.OwnerUsername == _username);
                 Collections.Add(col);
             }
         }
 
-        private void OpenCollectionButton_Click(object sender, RoutedEventArgs e)
+        // --- MODIFIED: Now async ---
+        private async void OpenCollectionButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ReminderCollection collection)
             {
-                SetActiveCollection(collection.Id);
+                // --- MODIFIED: Now awaited ---
+                await SetActiveCollectionAsync(collection.Id);
                 SettingsService.SaveSettings(_settings, _username);
                 RemindersTab.Visibility = Visibility.Visible;
                 MainTabControl.SelectedItem = RemindersTab;
             }
         }
 
+        // --- MODIFIED: Now async ---
         private async void DeleteCollection_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ReminderCollection collection)
             {
-                // UI button should be disabled, but double-check
                 if (!collection.IsOwnedByCurrentUser) return;
-
-                collection.IsDeleted = true; // Soft delete
+                collection.IsDeleted = true;
                 collection.LastModified = DateTime.UtcNow;
                 Collections.Remove(collection);
-
                 SaveMasterCollectionsToLocal();
                 await MongoSyncService.SaveCollectionToCloudAsync(collection, _username);
-
                 if (_activeCollection.Id == collection.Id)
                 {
                     _noteWindow?.Close();
                     _noteWindow = null;
-                    SetActiveCollection(null);
+                    // --- MODIFIED: Now awaited ---
+                    await SetActiveCollectionAsync(null);
                 }
             }
         }
-
         private async void AddNewCollection_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(NewColTextBox.Text) || NewColTextBox.Text == "New collection title...")
             {
                 return;
             }
-
             var newCollection = new ReminderCollection
             {
                 Title = NewColTextBox.Text,
                 OwnerUsername = _username
             };
-            newCollection.IsOwnedByCurrentUser = true; // Set for UI
-
+            newCollection.IsOwnedByCurrentUser = true;
             _masterCollections.Add(newCollection);
             Collections.Add(newCollection);
-
             SaveMasterCollectionsToLocal();
             await MongoSyncService.SaveCollectionToCloudAsync(newCollection, _username);
-
             NewColTextBox.Text = "New collection title...";
             NewColTextBox.Foreground = new SolidColorBrush(Colors.Gray);
         }
-
         private async void CopyCollectionButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ReminderCollection collectionToCopy)
             {
-                // 1. Create the new collection
                 var newCollection = new ReminderCollection
                 {
                     Title = collectionToCopy.Title + " (Copy)",
-                    OwnerUsername = _username, // You own the copy
+                    OwnerUsername = _username,
                     IsOwnedByCurrentUser = true,
-                    SharedWithUsernames = new List<string>() // The copy is private
+                    SharedWithUsernames = new List<string>()
                 };
-
-                // 2. Deep-copy all items
                 foreach (var item in collectionToCopy.Items.Where(i => !i.IsDeleted))
                 {
                     newCollection.Items.Add(new ReminderItem
                     {
                         Message = item.Message,
                         DurationSeconds = item.DurationSeconds,
+                        OwnerUsername = _username,
+                        CreatedAt = DateTime.UtcNow,
+                        LastModified = DateTime.UtcNow
                     });
                 }
-
-                // 3. Add to lists
                 _masterCollections.Add(newCollection);
                 Collections.Add(newCollection);
-
-                // 4. Save
                 SaveMasterCollectionsToLocal();
                 await MongoSyncService.SaveCollectionToCloudAsync(newCollection, _username);
                 SetSyncStatus($"Created copy of '{collectionToCopy.Title}'", "#90EE90");
             }
         }
-
         private void CollectionsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // Does nothing
         }
-
         #endregion
 
         #region Share Collection Logic
-
         private void ShareCollectionButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ReminderCollection collection)
@@ -517,26 +498,21 @@ namespace FloatingReminder
                     SetSyncStatus("You must have friends to invite.", "#FF6B6B");
                     return;
                 }
-
                 var shareWindow = new ShareWindow(collection, _currentUser.FriendUsernames, _username);
                 shareWindow.Owner = this;
                 shareWindow.ShowDialog();
-
                 if (shareWindow.WasShareSuccessful)
                 {
                     SetSyncStatus($"Invite list updated for '{collection.Title}'!", "#90EE90");
                 }
             }
         }
-
         #endregion
 
         #region Friends Tab Logic
-
         private async Task LoadPendingRequestsAsync()
         {
             if (_isGuest || !NetworkService.IsNetworkAvailable()) return;
-
             SetSyncStatus("Loading friend requests...", "#FFFFFF");
             try
             {
@@ -554,7 +530,6 @@ namespace FloatingReminder
                 Console.WriteLine($"[LoadRequests Error]: {ex.Message}");
             }
         }
-
         private async void AddFriendButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(FriendUsernameTextBox.Text)) return;
@@ -563,10 +538,8 @@ namespace FloatingReminder
                 SetSyncStatus("You must be online to send requests.", "#FF6B6B");
                 return;
             }
-
             SetSyncStatus("Sending request...", "#FFD700");
             string result = await FriendService.SendRequestAsync(_username, FriendUsernameTextBox.Text);
-
             if (result == "Success: Friend request sent!")
             {
                 SetSyncStatus(result, "#90EE90");
@@ -577,7 +550,6 @@ namespace FloatingReminder
                 SetSyncStatus(result, "#FF6B6B");
             }
         }
-
         private async void AcceptButton_Click(object sender, RoutedEventArgs e)
         {
             if (!NetworkService.IsNetworkAvailable())
@@ -585,7 +557,6 @@ namespace FloatingReminder
                 SetSyncStatus("You must be online to accept requests.", "#FF6B6B");
                 return;
             }
-
             if (sender is Button btn && btn.Tag is FriendRequest request)
             {
                 try
@@ -593,7 +564,6 @@ namespace FloatingReminder
                     await FriendService.AcceptRequestAsync(request);
                     PendingRequests.Remove(request);
                     PendingRequestsTab.Header = $"Pending Requests ({PendingRequests.Count})";
-
                     if (_currentUser != null && !_currentUser.FriendUsernames.Contains(request.SenderUsername))
                     {
                         _currentUser.FriendUsernames.Add(request.SenderUsername);
@@ -607,7 +577,6 @@ namespace FloatingReminder
                 }
             }
         }
-
         private async void DeclineButton_Click(object sender, RoutedEventArgs e)
         {
             if (!NetworkService.IsNetworkAvailable())
@@ -615,7 +584,6 @@ namespace FloatingReminder
                 SetSyncStatus("You must be online to decline requests.", "#FF6B6B");
                 return;
             }
-
             if (sender is Button btn && btn.Tag is FriendRequest request)
             {
                 try
@@ -635,19 +603,22 @@ namespace FloatingReminder
         #endregion
 
         #region TextBox Placeholder Logic
-
         private void NewItemTextBox_GotFocus(object sender, RoutedEventArgs e)
         {
             if (sender is TextBox tb)
             {
-                if (tb.Text == "New reminder..." || tb.Text == "New collection title...")
+                if (tb.Name == "NewItemTextBox" && tb.Text == "New reminder...")
+                {
+                    tb.Text = "";
+                    tb.Foreground = new SolidColorBrush(Colors.White);
+                }
+                else if (tb.Name == "NewColTextBox" && tb.Text == "New collection title...")
                 {
                     tb.Text = "";
                     tb.Foreground = new SolidColorBrush(Colors.White);
                 }
             }
         }
-
         private void NewItemTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             if (sender is TextBox tb)
@@ -656,13 +627,19 @@ namespace FloatingReminder
                 {
                     tb.Foreground = new SolidColorBrush(Colors.Gray);
                     if (tb.Name == "NewItemTextBox")
-                        tb.Text = "New reminder...";
+                    {
+                        if (_editingItem == null)
+                        {
+                            tb.Text = "New reminder...";
+                        }
+                    }
                     else if (tb.Name == "NewColTextBox")
+                    {
                         tb.Text = "New collection title...";
+                    }
                 }
             }
         }
-
         #endregion
     }
 }
