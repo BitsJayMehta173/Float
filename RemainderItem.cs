@@ -18,24 +18,25 @@ namespace FloatingReminder
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime CreatedAt { get; set; }
 
-        // --- NEW ---
         [BsonElement("lastModified")]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime LastModified { get; set; }
 
         // --- NEW ---
+        [BsonElement("ownerUsername")]
+        public string OwnerUsername { get; set; }
+
         [BsonElement("isDeleted")]
-        public bool IsDeleted { get; set; } = false; // "Soft delete" flag
+        public bool IsDeleted { get; set; } = false;
 
 
         public ReminderItem()
         {
             this.Id = Guid.NewGuid().ToString();
             this.CreatedAt = DateTime.UtcNow;
-            this.LastModified = this.CreatedAt; // Initially, they are the same
+            this.LastModified = this.CreatedAt;
         }
 
-        // --- Equality check is unchanged, it still uses the unique ID ---
         public bool Equals(ReminderItem other)
         {
             if (other is null)

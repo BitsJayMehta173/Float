@@ -12,6 +12,15 @@ namespace FloatingReminder
         [BsonElement("title")]
         public string Title { get; set; }
 
+        // --- NEW ---
+        [BsonElement("ownerUsername")]
+        public string OwnerUsername { get; set; }
+
+        // --- NEW ---
+        [BsonElement("sharedWithUsernames")]
+        public List<string> SharedWithUsernames { get; set; } = new List<string>();
+
+
         [BsonElement("createdAt")]
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime CreatedAt { get; set; }
@@ -25,6 +34,15 @@ namespace FloatingReminder
 
         [BsonElement("items")]
         public List<ReminderItem> Items { get; set; } = new List<ReminderItem>();
+
+        // --- NEW (For UI logic) ---
+        /// <summary>
+        /// This is not saved to MongoDB. It's set in the UI
+        /// to easily enable/disable buttons.
+        /// </summary>
+        [BsonIgnore]
+        public bool IsOwnedByCurrentUser { get; set; }
+
 
         public ReminderCollection()
         {
