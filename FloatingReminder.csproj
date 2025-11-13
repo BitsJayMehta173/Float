@@ -172,6 +172,11 @@
     <Compile Include="ReminderCollection.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="SettingsService.cs" />
+    <Compile Include="SharedCollectionItem.cs" />
+    <Compile Include="ShareService.cs" />
+    <Compile Include="ShareWindow.xaml.cs">
+      <DependentUpon>ShareWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="SignUpWindow.xaml.cs">
       <DependentUpon>SignUpWindow.xaml</DependentUpon>
     </Compile>
@@ -198,6 +203,10 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="ShareWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="SignUpWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

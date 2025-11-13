@@ -28,314 +28,135 @@
             <Setter Property="Background" Value="#11FFFFFF"/>
             <Setter Property="BorderBrush" Value="#22FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="10"/>
-        </Style>
-
-        <Style x:Key="GlassTextBox" TargetType="TextBox">
-            <Setter Property="Background" Value="#11FFFFFF"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="10"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border CornerRadius="8" 
-                                Background="{TemplateBinding Background}" 
-                                BorderBrush="{TemplateBinding BorderBrush}" 
-                                BorderThickness="{TemplateBinding BorderThickness}">
-                            <ScrollViewer x:Name="PART_ContentHost"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
         <Style x:Key="GlassButton" TargetType="Button">
             <Setter Property="Background" Value="#22FFFFFF"/>
-            <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" CornerRadius="8" 
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5"/>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
                         </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#33FFFFFF"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#11FFFFFF"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#33FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
-        <Style x:Key="MainTabItemStyle" TargetType="TabItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#99FFFFFF"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border Name="Border" Background="{TemplateBinding Background}" 
-                                BorderThickness="0" Padding="15,10">
-                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter TargetName="Border" Property="Background" Value="#22FFFFFF"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource GlassButton}">
+            <Setter Property="Background" Value="#87CEEB"/>
+            <Setter Property="Foreground" Value="#190019"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#B0E0E6"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
-
-        <Style x:Key="SubTabItemStyle" TargetType="TabItem">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#99FFFFFF"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border Name="Border" BorderBrush="#44FFFFFF" BorderThickness="0,0,0,2" Padding="10,5" Margin="0,0,10,0">
-                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter TargetName="Border" Property="BorderBrush" Value="White"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
     </Window.Resources>
 
-    <Border CornerRadius="20" Padding="1" Background="Transparent">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="30" Color="#000000" Opacity="0.4" ShadowDepth="0"/>
-        </Border.Effect>
-
-        <Grid x:Name="BackgroundGrid" Background="{StaticResource DashboardBackgroundBrush}">
-            <Grid.Clip>
-                <RectangleGeometry RadiusX="20" RadiusY="20" Rect="0,0,450,650"/>
-            </Grid.Clip>
-
+    <Border Background="{StaticResource DashboardBackgroundBrush}" CornerRadius="10" 
+            BorderBrush="#33FFFFFF" BorderThickness="1" 
+            MouseLeftButtonDown="Border_MouseLeftButtonDown">
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Border Grid.RowSpan="2" Background="Transparent" MouseLeftButtonDown="Border_MouseLeftButtonDown" />
+            <Grid Grid.Row="0" Margin="10,10,10,0">
+                <TextBlock x:Name="TitleText" Text="Dashboard" 
+                           FontSize="18" FontWeight="Bold" 
+                           VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0"/>
 
-            <StackPanel Grid.Row="0" Margin="25,20,25,15">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="ChangeBgButton" Content="🎨" 
+                            Style="{StaticResource GlassButton}" Padding="8,5"
+                            Click="ChangeBgButton_Click"/>
 
-                    <TextBlock x:Name="TitleText" Grid.Column="0" Text="Floating Note Dashboard" FontSize="18" FontWeight="Bold" 
-                               VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <Button x:Name="LogoutButton" Content="⏏" 
+                            ToolTip="Logout"
+                            FontWeight="Bold"
+                            Style="{StaticResource GlassButton}" Padding="10,5"
+                            Margin="5,0,0,0"
+                            Click="LogoutButton_Click"/>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="LoginButton" Content="Login" 
-                                Style="{StaticResource GlassButton}" Padding="10,5"
-                                ToolTip="Login or Sign Up"
-                                Click="LoginButton_Click"
-                                Visibility="Collapsed"/>
-
-                        <Button x:Name="LogoutButton" Content="Logout" 
-                                Style="{StaticResource GlassButton}" Padding="10,5"
-                                ToolTip="Logout and return to Login"
-                                Click="LogoutButton_Click"
-                                Visibility="Collapsed"/>
-                    </StackPanel>
-
-                    <Button Grid.Column="2" Content="🎨" FontSize="16" Width="30" Height="30"
-                            Style="{StaticResource GlassButton}" Margin="5,0,0,0"
-                            ToolTip="Change Theme"
-                            Click="ChangeGradientButton_Click"/>
-
-                    <Button Grid.Column="3" Content="—" FontSize="16" Width="30" Height="30"
-                            Style="{StaticResource GlassButton}" Margin="5,0,0,0"
+                    <Button x:Name="CloseButton" Content="✕" 
                             ToolTip="Minimize to Tray"
-                            Click="MinimizeButton_Click"/>
-                </Grid>
+                            Style="{StaticResource GlassButton}" Padding="10,5"
+                            Margin="5,0,0,0"
+                            Click="CloseButton_Click"/>
+                </StackPanel>
+            </Grid>
 
-                <TextBlock x:Name="HeaderSubtitle" Text="Your message collections." 
-                           FontSize="13" Opacity="0.7" Margin="0,5,0,0"/>
-            </StackPanel>
+            <TabControl x:Name="MainTabControl" Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="10">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabItem">
+                                    <Border x:Name="Border" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="10,8">
+                                        <TextBlock Text="{TemplateBinding Header}" Foreground="#AAFFFFFF"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Border" Property="BorderBrush" Value="#87CEEB"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.Resources>
 
-            <TabControl x:Name="MainTabControl" Grid.Row="1" Background="Transparent" BorderThickness="0"
-                        TabStripPlacement="Bottom"
-                        Style="{StaticResource {x:Type TabControl}}"
-                        SelectionChanged="MainTabControl_SelectionChanged">
-
-                <TabItem x:Name="CollectionsTab" Header="Collections" Style="{StaticResource MainTabItemStyle}">
-                    <Grid Margin="25,0,25,25">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <Border Grid.Row="0" Margin="0,0,0,20" Padding="15" Style="{StaticResource GlassBorder}">
-                            <StackPanel>
-                                <TextBlock Text="Create a New Collection" Opacity="0.7" Margin="0,0,0,10"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="NewColTitleBox" Grid.Column="0" Style="{StaticResource GlassTextBox}" Text="New Collection Title"/>
-                                    <Button x:Name="CreateCollectionButton" Grid.Column="1" Content="Create &amp; Open"
-                                            Style="{StaticResource GlassButton}" Padding="15,10" Margin="10,0,0,0"
-                                            Click="CreateCollectionButton_Click"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Grid.Row="1" Style="{StaticResource GlassBorder}">
-                            <Grid>
-                                <TextBlock x:Name="NoCollectionsText" Text="No collections created yet."
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Opacity="0.5" Visibility="Collapsed"/>
-
-                                <ListView x:Name="CollectionsList" Background="Transparent" BorderThickness="0">
-                                    <ListView.ItemContainerStyle>
-                                        <Style TargetType="ListViewItem">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListViewItem">
-                                                        <ContentPresenter/>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </ListView.ItemContainerStyle>
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Margin="5" Padding="0,10">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <TextBlock Grid.Column="0" Text="{Binding Title}" 
-                                                               VerticalAlignment="Center" FontWeight="Bold"/>
-
-                                                    <Button x:Name="OpenButton" Content="Open"
-                                                            Style="{StaticResource GlassButton}" Padding="10,5"
-                                                            Grid.Column="1"
-                                                            Tag="{Binding}" Click="Collection_OpenButton_Click"/>
-
-                                                    <Button x:Name="DeleteButton" Content="Delete" 
-                                                            Foreground="#FF6B6B" Margin="5,0,0,0"
-                                                            Style="{StaticResource GlassButton}" Padding="10,5"
-                                                            Grid.Column="2"
-                                                            Tag="{Binding}" Click="Collection_DeleteButton_Click"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </TabItem>
-
-                <TabItem x:Name="MessagesTab" Header="Messages" Style="{StaticResource MainTabItemStyle}">
+                <TabItem x:Name="CollectionsTab" Header="Collections" IsSelected="True">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-
-                        <Border Grid.Row="0" Margin="25,0,25,20" Padding="15" Style="{StaticResource GlassBorder}">
-                            <StackPanel>
-                                <TextBox x:Name="MessageInput" Style="{StaticResource GlassTextBox}" Text="New Message" />
-                                <Grid Margin="0,10,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="DurationInput" Grid.Column="0" Style="{StaticResource GlassTextBox}" Text="5" />
-                                    <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" Margin="8,0" Opacity="0.7"/>
-                                    <Button x:Name="AddButton" Grid.Column="2" Content="ADD MESSAGE" 
-                                            Style="{StaticResource GlassButton}" Padding="15,10"
-                                            Click="AddButton_Click"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Grid.Row="1" Margin="25,0,25,20" Style="{StaticResource GlassBorder}">
-                            <ListView x:Name="RemindersList" Background="Transparent" BorderThickness="0"
-                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                      ItemsSource="{Binding Reminders}">
-                                <ListView.ItemContainerStyle>
-                                    <Style TargetType="ListViewItem">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="ListViewItem">
-                                                    <ContentPresenter/>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </ListView.ItemContainerStyle>
+                        <Border Grid.Row="0" Style="{StaticResource GlassBorder}">
+                            <ListView x:Name="CollectionsListView" ItemsSource="{Binding Collections}" 
+                                      Background="Transparent" BorderThickness="0" 
+                                      Foreground="White"
+                                      SelectionChanged="CollectionsListView_SelectionChanged">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Margin="5" Padding="0,10">
+                                        <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Padding="5" Width="370">
                                             <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Title}" FontSize="14" 
+                                                           FontWeight="Bold" VerticalAlignment="Center"/>
 
-                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                                    <TextBlock Text="{Binding Message}" 
-                                                               TextWrapping="Wrap" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding CreatedAt, StringFormat='Added: {0:MMM dd, yyyy h:mm tt}'}" 
-                                                               TextWrapping="Wrap" VerticalAlignment="Center"
-                                                               FontSize="9" Opacity="0.6" Margin="0,2,0,0"/>
-                                                </StackPanel>
-
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding DurationSeconds}" FontWeight="Bold" Margin="0,0,3,0"/>
-                                                    <TextBlock Text="sec" Opacity="0.7"/>
-                                                </StackPanel>
-
-                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="15,0,0,0">
-                                                    <Button x:Name="EditButton" Content="Edit" 
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <Button x:Name="OpenCollectionButton" Content="Open"
+                                                            Foreground="#90EE90"
                                                             Style="{StaticResource GlassButton}" Padding="10,5"
-                                                            Tag="{Binding}" Click="EditButton_Click"/>
-                                                    <Button x:Name="DeleteButton" Content="Del" 
-                                                            Foreground="#FF6B6B"
-                                                            Style="{StaticResource GlassButton}" Padding="10,5" Margin="5,0,0,0"
-                                                            Tag="{Binding}" Click="DeleteButton_Click"/>
+                                                            Tag="{Binding}" Click="OpenCollectionButton_Click"/>
+
+                                                    <Button x:Name="ShareCollectionButton" 
+                                                            Content="Share"
+                                                            Style="{StaticResource GlassButton}" Padding="10,5"
+                                                            Foreground="#87CEEB" Margin="5,0,0,0"
+                                                            Tag="{Binding}" 
+                                                            Click="ShareCollectionButton_Click"/>
+
+                                                    <Button x:Name="DeleteCollection" Content="Delete" 
+                                                            Foreground="#FF6B6B" Margin="5,0,0,0"
+                                                            Style="{StaticResource GlassButton}" Padding="10,5"
+                                                            Tag="{Binding}" Click="DeleteCollection_Click"/>
                                                 </StackPanel>
                                             </Grid>
                                         </Border>
@@ -344,121 +165,61 @@
                             </ListView>
                         </Border>
 
-                        <Grid Grid.Row="2" Margin="25,0,25,25">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <Grid Grid.Row="0" Margin="0,0,0,20">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Font Size" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBox x:Name="FontSizeInput" Grid.Column="1" 
-                                         Style="{StaticResource GlassTextBox}" Text="60"/>
-                                <CheckBox x:Name="GlowCheckBox" Grid.Column="2"
-                                          Content="Enable Glow Effect" IsChecked="True"
-                                          Foreground="White" VerticalAlignment="Center"/>
-                            </Grid>
-
-                            <StackPanel Grid.Row="1">
-                                <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontWeight="Bold" 
-                                           HorizontalAlignment="Center" Margin="0,0,0,10" 
-                                           TextWrapping="Wrap" Visibility="Collapsed"/>
-
-                                <Button x:Name="StartButton" Content="LAUNCH FLOATING NOTE 🚀" 
-                                        Height="45" FontSize="14" FontWeight="Bold"
-                                        Background="White" Foreground="#1a2a6c" BorderThickness="0"
-                                        Cursor="Hand" Click="StartButton_Click"/>
-
-                                <Button x:Name="SyncButton" 
-                                        Content="Sync with Cloud 🔄" 
-                                        Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
-                                        Cursor="Hand" Margin="0,10,0,0" FontSize="11"
-                                        Click="SyncButton_Click"/>
-
-                                <Button x:Name="LoadButton" Content="Merge from Cloud 🔄"
-                                        Background="Transparent" BorderThickness="0" Foreground="#AAFFFFFF"
-                                        Cursor="Hand" Margin="0,5,0,0" FontSize="11"
-                                        Visibility="Collapsed"/>
-
-                                <TextBlock x:Name="SyncStatusText" 
-                                           HorizontalAlignment="Center" Margin="0,5,0,-5"
-                                           Foreground="#FF6B6B" Visibility="Collapsed"
-                                           Text="Sync Status" TextWrapping="Wrap"/>
-
-                                <Button Content="Exit Application completely" 
-                                        Background="Transparent" BorderThickness="0" Foreground="#88FFFFFF"
-                                        Cursor="Hand" Margin="0,10,0,0" FontSize="11"
-                                        Click="ExitButton_Click"/>
-                            </StackPanel>
+                        <Grid Grid.Row="1" Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="NewColTextBox" Grid.Column="0" Margin="0,0,10,0"
+                                     Text="New collection title..." Foreground="#AAFFFFFF"
+                                     Background="#11FFFFFF" BorderThickness="0" Padding="10"
+                                     VerticalContentAlignment="Center" GotFocus="NewItemTextBox_GotFocus" LostFocus="NewItemTextBox_LostFocus"/>
+                            <Button x:Name="AddNewCollectionButton" Grid.Column="1" Content="Add New" 
+                                    Style="{StaticResource PrimaryButton}"
+                                    Click="AddNewCollection_Click"/>
                         </Grid>
                     </Grid>
                 </TabItem>
 
-                <TabItem x:Name="FriendsTab" Header="Friends" Style="{StaticResource MainTabItemStyle}">
-                    <TabControl Background="Transparent" BorderThickness="0" Margin="25,0,25,20"
-                                Style="{StaticResource {x:Type TabControl}}">
-
-                        <TabItem Header="Add Friend" Style="{StaticResource SubTabItemStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Enter username to send a request:" Opacity="0.7" Margin="0,15,0,10"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="SearchUsernameBox" Grid.Column="0" Style="{StaticResource GlassTextBox}"/>
-                                    <Button x:Name="SendRequestButton" Grid.Column="1" Content="Send Request"
-                                            Style="{StaticResource GlassButton}" Padding="15,10" Margin="10,0,0,0"
-                                            Click="SendRequestButton_Click"/>
-                                </Grid>
-
-                                <TextBlock x:Name="FriendStatusText" HorizontalAlignment="Center" Margin="0,15,0,0"
-                                           Text="Status... " TextWrapping="Wrap" Visibility="Collapsed"/>
+                <TabItem Header="Friends">
+                    <TabControl Background="Transparent" BorderThickness="0">
+                        <TabItem Header="Add Friend">
+                            <StackPanel Margin="10">
+                                <TextBlock Text="Enter a username to send a friend request:" TextWrapping="Wrap"/>
+                                <TextBox x:Name="FriendUsernameTextBox" Margin="0,10,0,0"
+                                         Background="#11FFFFFF" BorderThickness="0" Padding="10"
+                                         VerticalContentAlignment="Center" Foreground="White"/>
+                                <Button x:Name="AddFriendButton" Content="Send Request" 
+                                        Style="{StaticResource PrimaryButton}" Margin="0,15,0,0"
+                                        Click="AddFriendButton_Click"/>
                             </StackPanel>
                         </TabItem>
-
-                        <TabItem Header="Requests" Style="{StaticResource SubTabItemStyle}">
-                            <Border Style="{StaticResource GlassBorder}" Margin="0,15,0,0">
-                                <ListView x:Name="FriendRequestsList" Background="Transparent" BorderThickness="0">
-                                    <ListView.ItemContainerStyle>
-                                        <Style TargetType="ListViewItem">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListViewItem">
-                                                        <ContentPresenter/>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </ListView.ItemContainerStyle>
+                        <TabItem x:Name="PendingRequestsTab" Header="Pending Requests">
+                            <Border Style="{StaticResource GlassBorder}">
+                                <ListView x:Name="PendingRequestsListView" ItemsSource="{Binding PendingRequests}" 
+                                          Background="Transparent" BorderThickness="0" 
+                                          Foreground="White">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Margin="5" Padding="0,10">
+                                            <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Padding="5" Width="360">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-
                                                     <TextBlock Grid.Column="0" Text="{Binding SenderUsername}" 
                                                                VerticalAlignment="Center" FontWeight="Bold"/>
 
-                                                    <Button x:Name="AcceptButton" Content="Accept"
-                                                            Foreground="#90EE90"
-                                                            Style="{StaticResource GlassButton}" Padding="10,5"
-                                                            Tag="{Binding}" Click="AcceptButton_Click"/>
-                                                    <Button x:Name="DeclineButton" Content="Decline" 
-                                                            Foreground="#FF6B6B" Margin="5,0,0,0"
-                                                            Style="{StaticResource GlassButton}" Padding="10,5"
-                                                            Grid.Column="2"
-                                                            Tag="{Binding}" Click="DeclineButton_Click"/>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                        <Button x:Name="AcceptButton" Content="Accept"
+                                                                Foreground="#90EE90"
+                                                                Style="{StaticResource GlassButton}" Padding="10,5"
+                                                                Tag="{Binding}" Click="AcceptButton_Click"/>
+                                                        <Button x:Name="DeclineButton" Content="Decline" 
+                                                                Foreground="#FF6B6B" Margin="5,0,0,0"
+                                                                Style="{StaticResource GlassButton}" Padding="10,5"
+                                                                Tag="{Binding}" Click="DeclineButton_Click"/>
+                                                    </StackPanel>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -468,8 +229,79 @@
                         </TabItem>
                     </TabControl>
                 </TabItem>
+
+                <TabItem x:Name="RemindersTab" Header="Reminders" Visibility="Collapsed">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button x:Name="BackToCollectionsButton" 
+                                    Content="&lt; Back to Collections"
+                                    Style="{StaticResource GlassButton}"
+                                    HorizontalAlignment="Left"
+                                    Padding="10,5" Foreground="#87CEEB"
+                                    Click="BackToCollections_Click"/>
+
+                            <Button x:Name="LaunchFloatWindowButton" 
+                                    Content="Launch Float Window"
+                                    Style="{StaticResource GlassButton}"
+                                    HorizontalAlignment="Left" Margin="10,0,0,0"
+                                    Padding="10,5" Foreground="#90EE90"
+                                    Click="LaunchFloatWindow_Click"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Style="{StaticResource GlassBorder}">
+                            <ListView x:Name="RemindersListView" ItemsSource="{Binding Reminders}" 
+                                      Background="Transparent" BorderThickness="0" 
+                                      Foreground="White">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1" Padding="5">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Message}" TextWrapping="Wrap" 
+                                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <Button x:Name="DeleteItem" Grid.Column="1" Content="Delete" 
+                                                        Foreground="#FF6B6B"
+                                                        Style="{StaticResource GlassButton}" Padding="10,5"
+                                                        Tag="{Binding}" Click="DeleteItem_Click"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Border>
+
+                        <Grid Grid.Row="2" Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="NewItemTextBox" Grid.Column="0" Margin="0,0,10,0"
+                                     Text="New reminder..." Foreground="#AAFFFFFF"
+                                     Background="#11FFFFFF" BorderThickness="0" Padding="10"
+                                     VerticalContentAlignment="Center" GotFocus="NewItemTextBox_GotFocus" LostFocus="NewItemTextBox_LostFocus"/>
+                            <Button x:Name="AddItemButton" Grid.Column="1" Content="Add Item" 
+                                    Style="{StaticResource PrimaryButton}"
+                                    Click="AddItemButton_Click"/>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
             </TabControl>
 
+            <Border Grid.Row="2" Background="#11FFFFFF" Padding="10,5" CornerRadius="0,0,10,10">
+                <TextBlock x:Name="SyncStatusText" Text="Loading..." 
+                           Foreground="#AAFFFFFF" FontSize="11"
+                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            </Border>
         </Grid>
     </Border>
 </Window>
