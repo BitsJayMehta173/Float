@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 
@@ -10,47 +12,65 @@ namespace FloatingReminder
         private readonly ReminderCollection _collection;
         private readonly string _senderUsername;
 
-        /// <summary>
-        /// This property is used by MainWindow to know if the share was successful.
-        /// </summary>
+        // --- NEW: This holds the list of FriendInviteViewModel objects ---
+        private readonly ObservableCollection<FriendInviteViewModel> _friendInviteList;
+
         public bool WasShareSuccessful { get; private set; } = false;
 
-        public ShareWindow(ReminderCollection collection, List<string> friendUsernames, string senderUsername)
+        // --- MODIFIED: Constructor now takes the collection ---
+        public ShareWindow(ReminderCollection collection, List<string> allFriendUsernames, string senderUsername)
         {
             InitializeComponent();
 
             _collection = collection;
             _senderUsername = senderUsername;
+            _friendInviteList = new ObservableCollection<FriendInviteViewModel>();
 
-            // Set the title
             CollectionNameText.Text = $"Collection: '{_collection.Title}'";
 
-            // Populate the dropdown
-            FriendsComboBox.ItemsSource = friendUsernames;
-            if (friendUsernames.Count > 0)
+            // --- NEW: Populate the checklist ---
+            foreach (var friend in allFriendUsernames)
             {
-                FriendsComboBox.SelectedIndex = 0;
+                bool isAlreadyInvited = _collection.SharedWithUsernames.Contains(friend);
+
+                _friendInviteList.Add(new FriendInviteViewModel
+                {
+                    Username = friend,
+                    IsInvited = isAlreadyInvited,
+                    CanInvite = !isAlreadyInvited // Disable checkbox if already invited
+                });
             }
+
+            FriendsListBox.ItemsSource = _friendInviteList;
         }
 
+        // --- MODIFIED: This is now "Update Invites" logic ---
         private async void SendButton_Click(object sender, RoutedEventArgs e)
         {
-            if (FriendsComboBox.SelectedItem == null)
+            // Get all usernames that are NOW checked but WEREN'T before
+            var newInvites = _friendInviteList
+                .Where(f => f.IsInvited && f.CanInvite) // Find newly checked users
+                .Select(f => f.Username)
+                .ToList();
+
+            if (!newInvites.Any())
             {
-                ShowError("Please select a friend.");
+                // No new people were invited, just close
+                this.Close();
                 return;
             }
-
-            string recipientUsername = FriendsComboBox.SelectedItem as string;
 
             SetLoading(true);
 
             try
             {
-                // Call the service method we created
-                await ShareService.SendCollectionAsync(_collection, _senderUsername, recipientUsername);
+                // --- NEW: Add new friends to the list and save ---
+                _collection.SharedWithUsernames.AddRange(newInvites);
+                _collection.LastModified = DateTime.UtcNow;
 
-                // Set success flag and close
+                // Call the service method we created in MongoSyncService
+                await MongoSyncService.SaveCollectionToCloudAsync(_collection, _senderUsername);
+
                 WasShareSuccessful = true;
                 this.Close();
             }
@@ -73,7 +93,7 @@ namespace FloatingReminder
             SendButton.IsEnabled = !isLoading;
             CancelButton.IsEnabled = !isLoading;
             ErrorText.Visibility = Visibility.Collapsed;
-            SendButton.Content = isLoading ? "Sending..." : "Send";
+            SendButton.Content = isLoading ? "Saving..." : "Update Invites";
         }
 
         private void ShowError(string message)

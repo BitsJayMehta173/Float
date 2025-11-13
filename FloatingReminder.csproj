@@ -155,10 +155,12 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="AppState.cs" />
     <Compile Include="AuthService.cs" />
     <Compile Include="FloatingNoteWindow.xaml.cs">
       <DependentUpon>FloatingNoteWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="FriendInviteViewModel.cs" />
     <Compile Include="FriendRequest.cs" />
     <Compile Include="FriendService.cs" />
     <Compile Include="GradientPresets.cs" />
@@ -180,6 +182,7 @@
     <Compile Include="SignUpWindow.xaml.cs">
       <DependentUpon>SignUpWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="SyncManager.cs" />
     <Compile Include="User.cs" />
     <Page Include="FloatingNoteWindow.xaml">
       <SubType>Designer</SubType>

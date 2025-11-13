@@ -76,6 +76,9 @@ namespace FloatingReminder
         {
             _isLoggingOut = true;
 
+            // Stop the real-time sync
+            AppState.CleanupSession();
+
             _noteWindow?.Close();
             if (_notifyIcon != null)
             {
@@ -103,6 +106,9 @@ namespace FloatingReminder
         private void LogoutButton_Click(object sender, RoutedEventArgs e)
         {
             _isLoggingOut = true;
+
+            // Stop the real-time sync
+            AppState.CleanupSession();
 
             _noteWindow?.Close();
             if (_notifyIcon != null)
@@ -168,18 +174,42 @@ namespace FloatingReminder
                 }
 
                 await SyncWithCloud();
+                await LoadPendingRequestsAsync(); // Load friend requests
 
-                // *** ADD THIS LINE ***
-                await LoadPendingRequestsAsync();
+                // Start the real-time sync session
+                AppState.InitializeSession(_username, OnCloudUpdate);
             }
 
             SetActiveCollection(_settings.ActiveCollectionId);
-            await CheckForSharedCollectionsAsync();
         }
 
         #endregion
 
         #region Data Sync and Management
+
+        // --- NEW: This is the callback for the SyncManager ---
+        private void OnCloudUpdate()
+        {
+            // This is called from a background thread,
+            // so we MUST use the Dispatcher to update the UI.
+            Dispatcher.Invoke(async () =>
+            {
+                SetSyncStatus("Change detected, re-syncing...", "#FFD700");
+
+                // 1. Re-run the main cloud sync
+                await SyncWithCloud();
+
+                // 2. Re-set the active collection.
+                // This re-loads the item list in the Reminders tab
+                // in case the active collection was the one modified.
+                SetActiveCollection(_settings.ActiveCollectionId);
+
+                // 3. (Optional) Re-load friend requests
+                await LoadPendingRequestsAsync();
+
+                SetSyncStatus("Sync complete.", "#90EE90");
+            });
+        }
 
         private async Task SyncWithCloud()
         {
@@ -191,6 +221,7 @@ namespace FloatingReminder
 
             try
             {
+                // This service call now gets collections WE OWN or ARE SHARED WITH US
                 var cloudCollections = await MongoSyncService.LoadCollectionsFromCloudAsync(_username);
 
                 _masterCollections = cloudCollections;
@@ -205,25 +236,10 @@ namespace FloatingReminder
             }
         }
 
-        private async Task SaveAndSyncMasterCollections(bool forceCloudSync = false)
+        private void SaveMasterCollectionsToLocal()
         {
             MongoSyncService.SaveCollectionsToLocal(_masterCollections, _username);
             SetSyncStatus("Local data saved.", "#FFFFFF");
-
-            if (forceCloudSync && !_isGuest && NetworkService.IsNetworkAvailable())
-            {
-                SetSyncStatus("Syncing to cloud...", "#FFD700");
-                try
-                {
-                    await MongoSyncService.SaveCollectionsToCloudAsync(_masterCollections, _username);
-                    SetSyncStatus("Cloud sync complete.", "#90EE90");
-                }
-                catch (Exception ex)
-                {
-                    SetSyncStatus("Cloud sync failed.", "#FF6B6B");
-                    Console.WriteLine($"[CloudSave Error]: {ex.Message}");
-                }
-            }
         }
 
         private void SetActiveCollection(string collectionId)
@@ -239,9 +255,22 @@ namespace FloatingReminder
 
             if (_activeCollection == null)
             {
-                _activeCollection = new ReminderCollection { Title = "My First Collection" };
-                _masterCollections.Add(_activeCollection);
-                Collections.Add(_activeCollection);
+                // Create a new collection only if the master list is empty
+                if (!_masterCollections.Any())
+                {
+                    _activeCollection = new ReminderCollection
+                    {
+                        Title = "My First Collection",
+                        OwnerUsername = _username // Set owner
+                    };
+                    _activeCollection.IsOwnedByCurrentUser = true;
+                    _masterCollections.Add(_activeCollection);
+                    Collections.Add(_activeCollection);
+                }
+                else
+                {
+                    _activeCollection = _masterCollections.First();
+                }
             }
 
             _settings.ActiveCollectionId = _activeCollection.Id;
@@ -285,7 +314,6 @@ namespace FloatingReminder
             RemindersTab.Visibility = Visibility.Collapsed;
         }
 
-        // --- NEW: Event handler for the "Launch" button ---
         private void LaunchFloatWindow_Click(object sender, RoutedEventArgs e)
         {
             if (_activeCollection != null)
@@ -310,7 +338,6 @@ namespace FloatingReminder
                 }
             }
 
-            // This logic is key: only refresh the window if it's already open
             if (_noteWindow != null)
             {
                 StartFloatingWindow();
@@ -337,25 +364,26 @@ namespace FloatingReminder
             NewItemTextBox.Text = "New reminder...";
             NewItemTextBox.Foreground = new SolidColorBrush(Colors.Gray);
 
-            await SaveAndSyncMasterCollections(true);
+            SaveMasterCollectionsToLocal();
+            await MongoSyncService.SaveCollectionToCloudAsync(_activeCollection, _username);
 
-            // --- MODIFIED ---
-            RefreshRemindersList(); // Only refreshes if open
+            RefreshRemindersList();
         }
 
         private async void DeleteItem_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ReminderItem item)
             {
-                item.IsDeleted = true;
+                item.IsDeleted = true; // Soft delete
                 item.LastModified = DateTime.UtcNow;
                 _activeCollection.LastModified = DateTime.UtcNow;
 
                 Reminders.Remove(item);
-                await SaveAndSyncMasterCollections(true);
 
-                // --- MODIFIED ---
-                RefreshRemindersList(); // Only refreshes if open
+                SaveMasterCollectionsToLocal();
+                await MongoSyncService.SaveCollectionToCloudAsync(_activeCollection, _username);
+
+                RefreshRemindersList();
             }
         }
 
@@ -368,11 +396,12 @@ namespace FloatingReminder
             Collections.Clear();
             foreach (var col in _masterCollections.Where(c => !c.IsDeleted).OrderBy(c => c.Title))
             {
+                // Set the IsOwned property for UI bindings
+                col.IsOwnedByCurrentUser = (col.OwnerUsername == _username);
                 Collections.Add(col);
             }
         }
 
-        // --- MODIFIED ---
         private void OpenCollectionButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ReminderCollection collection)
@@ -381,9 +410,6 @@ namespace FloatingReminder
                 SettingsService.SaveSettings(_settings, _username);
                 RemindersTab.Visibility = Visibility.Visible;
                 MainTabControl.SelectedItem = RemindersTab;
-
-                // --- REMOVED ---
-                // StartFloatingWindow(); // This is no longer called here
             }
         }
 
@@ -391,11 +417,15 @@ namespace FloatingReminder
         {
             if (sender is Button btn && btn.Tag is ReminderCollection collection)
             {
-                collection.IsDeleted = true;
+                // UI button should be disabled, but double-check
+                if (!collection.IsOwnedByCurrentUser) return;
+
+                collection.IsDeleted = true; // Soft delete
                 collection.LastModified = DateTime.UtcNow;
                 Collections.Remove(collection);
 
-                await SaveAndSyncMasterCollections(true);
+                SaveMasterCollectionsToLocal();
+                await MongoSyncService.SaveCollectionToCloudAsync(collection, _username);
 
                 if (_activeCollection.Id == collection.Id)
                 {
@@ -415,16 +445,53 @@ namespace FloatingReminder
 
             var newCollection = new ReminderCollection
             {
-                Title = NewColTextBox.Text
+                Title = NewColTextBox.Text,
+                OwnerUsername = _username
             };
+            newCollection.IsOwnedByCurrentUser = true; // Set for UI
 
             _masterCollections.Add(newCollection);
             Collections.Add(newCollection);
 
-            await SaveAndSyncMasterCollections(true);
+            SaveMasterCollectionsToLocal();
+            await MongoSyncService.SaveCollectionToCloudAsync(newCollection, _username);
 
             NewColTextBox.Text = "New collection title...";
             NewColTextBox.Foreground = new SolidColorBrush(Colors.Gray);
+        }
+
+        private async void CopyCollectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ReminderCollection collectionToCopy)
+            {
+                // 1. Create the new collection
+                var newCollection = new ReminderCollection
+                {
+                    Title = collectionToCopy.Title + " (Copy)",
+                    OwnerUsername = _username, // You own the copy
+                    IsOwnedByCurrentUser = true,
+                    SharedWithUsernames = new List<string>() // The copy is private
+                };
+
+                // 2. Deep-copy all items
+                foreach (var item in collectionToCopy.Items.Where(i => !i.IsDeleted))
+                {
+                    newCollection.Items.Add(new ReminderItem
+                    {
+                        Message = item.Message,
+                        DurationSeconds = item.DurationSeconds,
+                    });
+                }
+
+                // 3. Add to lists
+                _masterCollections.Add(newCollection);
+                Collections.Add(newCollection);
+
+                // 4. Save
+                SaveMasterCollectionsToLocal();
+                await MongoSyncService.SaveCollectionToCloudAsync(newCollection, _username);
+                SetSyncStatus($"Created copy of '{collectionToCopy.Title}'", "#90EE90");
+            }
         }
 
         private void CollectionsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -447,7 +514,7 @@ namespace FloatingReminder
                 }
                 if (_currentUser == null || _currentUser.FriendUsernames == null || _currentUser.FriendUsernames.Count == 0)
                 {
-                    SetSyncStatus("You must have friends to share.", "#FF6B6B");
+                    SetSyncStatus("You must have friends to invite.", "#FF6B6B");
                     return;
                 }
 
@@ -457,66 +524,15 @@ namespace FloatingReminder
 
                 if (shareWindow.WasShareSuccessful)
                 {
-                    SetSyncStatus($"Sent '{collection.Title}'!", "#90EE90");
+                    SetSyncStatus($"Invite list updated for '{collection.Title}'!", "#90EE90");
                 }
             }
-        }
-
-        private async Task CheckForSharedCollectionsAsync()
-        {
-            if (_isGuest || !NetworkService.IsNetworkAvailable()) return;
-
-            SetSyncStatus("Checking for new shares...", "#FFFFFF");
-            List<SharedCollectionItem> newShares;
-            try
-            {
-                newShares = await ShareService.GetNewSharesAsync(_username);
-            }
-            catch (Exception ex)
-            {
-                SetSyncStatus("Error checking for shares.", "#FF6B6B");
-                Console.WriteLine($"[ShareCheck Error]: {ex.Message}");
-                return;
-            }
-
-            if (newShares.Count == 0)
-            {
-                SetSyncStatus("Ready", "#90EE90");
-                return;
-            }
-
-            SetSyncStatus($"Downloading {newShares.Count} new collection(s)...", "#FFD700");
-
-            foreach (var share in newShares)
-            {
-                var newCollection = share.SharedCollectionData;
-                newCollection.Id = Guid.NewGuid().ToString();
-                newCollection.Title = $"{newCollection.Title} (from {share.SenderUsername})";
-                newCollection.LastModified = DateTime.UtcNow;
-                newCollection.CreatedAt = DateTime.UtcNow;
-
-                foreach (var item in newCollection.Items)
-                {
-                    item.Id = Guid.NewGuid().ToString();
-                    item.LastModified = newCollection.LastModified;
-                    item.CreatedAt = newCollection.LastModified;
-                }
-
-                _masterCollections.Add(newCollection);
-                Collections.Add(newCollection);
-
-                await ShareService.DeleteShareAsync(share.Id);
-            }
-
-            await SaveAndSyncMasterCollections(true);
-            SetSyncStatus($"Successfully downloaded {newShares.Count} new share(s)!", "#90EE90");
         }
 
         #endregion
 
         #region Friends Tab Logic
 
-        // *** NEW METHOD ***
         private async Task LoadPendingRequestsAsync()
         {
             if (_isGuest || !NetworkService.IsNetworkAvailable()) return;
@@ -524,19 +540,12 @@ namespace FloatingReminder
             SetSyncStatus("Loading friend requests...", "#FFFFFF");
             try
             {
-                // 1. Get requests from the service
                 var requests = await FriendService.GetPendingRequestsAsync(_username);
-
-                // 2. Clear the UI list
                 PendingRequests.Clear();
-
-                // 3. Re-populate the UI list
                 foreach (var req in requests)
                 {
                     PendingRequests.Add(req);
                 }
-
-                // 4. Update the tab header with the count
                 PendingRequestsTab.Header = $"Pending Requests ({PendingRequests.Count})";
             }
             catch (Exception ex)
@@ -545,6 +554,7 @@ namespace FloatingReminder
                 Console.WriteLine($"[LoadRequests Error]: {ex.Message}");
             }
         }
+
         private async void AddFriendButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(FriendUsernameTextBox.Text)) return;
@@ -583,6 +593,7 @@ namespace FloatingReminder
                     await FriendService.AcceptRequestAsync(request);
                     PendingRequests.Remove(request);
                     PendingRequestsTab.Header = $"Pending Requests ({PendingRequests.Count})";
+
                     if (_currentUser != null && !_currentUser.FriendUsernames.Contains(request.SenderUsername))
                     {
                         _currentUser.FriendUsernames.Add(request.SenderUsername);

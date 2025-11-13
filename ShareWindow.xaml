@@ -5,54 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FloatingReminder"
         mc:Ignorable="d"
-        Title="Share Collection" 
-        Height="300" Width="350"
+        Title="Invite Friends" 
+        Height="450" Width="350"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         Foreground="White">
-
-    <Window.Resources>
-        <LinearGradientBrush x:Key="DashboardBackgroundBrush" StartPoint="0.5,0" EndPoint="0.5,1">
-            <GradientStop Color="#854F6C" Offset="0.0"/>
-            <GradientStop Color="#190019" Offset="1.0"/>
-        </LinearGradientBrush>
-
-        <Style x:Key="GlassButton" TargetType="Button">
-            <Setter Property="Background" Value="#22FFFFFF"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="5">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#33FFFFFF"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource GlassButton}">
-            <Setter Property="Background" Value="#87CEEB"/>
-            <Setter Property="Foreground" Value="#190019"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#B0E0E6"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-    </Window.Resources>
 
     <Border Background="{StaticResource DashboardBackgroundBrush}" CornerRadius="10" 
             BorderBrush="#33FFFFFF" BorderThickness="1" 
@@ -60,7 +19,7 @@
 
         <Grid>
             <Grid VerticalAlignment="Top" Margin="10,10,10,0">
-                <TextBlock Text="Share Collection" 
+                <TextBlock Text="Invite Friends" 
                            FontSize="18" FontWeight="Bold" 
                            VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0"/>
 
@@ -71,15 +30,26 @@
             </Grid>
 
             <StackPanel Margin="20,60,20,20">
-                <TextBlock Text="Select a friend to send a copy of this collection:"
+                <TextBlock Text="Select friends to invite to this collection:"
                            TextWrapping="Wrap"/>
 
                 <TextBlock x:Name="CollectionNameText" Text="Collection: '...'" 
                            FontWeight="Bold" Margin="0,10,0,0"/>
 
-                <ComboBox x:Name="FriendsComboBox" Margin="0,15,0,0"
-                          Background="#11FFFFFF" BorderThickness="0" 
-                          Foreground="Black" Padding="8"/>
+                <Border Style="{StaticResource GlassBorder}" Margin="0,15,0,0" Height="200">
+                    <ListBox x:Name="FriendsListBox" Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Content="{Binding Username}" 
+                                          IsChecked="{Binding IsInvited}" 
+                                          IsEnabled="{Binding CanInvite}"
+                                          Foreground="White"
+                                          Margin="5"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
 
                 <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontWeight="Bold" 
                            HorizontalAlignment="Center" Margin="0,10,0,0" 
@@ -97,7 +67,7 @@
                             Foreground="#AAFFFFFF"
                             Click="CloseButton_Click"/>
 
-                    <Button x:Name="SendButton" Grid.Column="1" Content="Send" 
+                    <Button x:Name="SendButton" Grid.Column="1" Content="Update Invites" 
                             Style="{StaticResource PrimaryButton}" 
                             Margin="5,0,0,0"
                             Click="SendButton_Click"/>
